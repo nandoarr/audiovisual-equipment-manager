@@ -874,7 +874,7 @@ export default function Dashboard({
             <div style={styles.settingsGrid}>
               
               {/* Change Password Block */}
-              {isAdmin ? (
+              {isAdmin && (
                 <div className="glass-panel" style={styles.settingsCard}>
                   <h3 style={styles.cardTitle}>Senha do Painel Compartilhado</h3>
                   <p style={styles.cardDescription}>
@@ -933,16 +933,6 @@ export default function Dashboard({
                       Atualizar Senha
                     </button>
                   </form>
-                </div>
-              ) : (
-                <div className="glass-panel" style={styles.settingsCard}>
-                  <h3 style={styles.cardTitle}>Alteração de Senha</h3>
-                  <div style={styles.adminRestrictionNotice}>
-                    <Lock size={16} color="var(--text-muted)" style={{ minWidth: '16px' }} />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      A alteração das senhas de acesso é restrita ao administrador.
-                    </span>
-                  </div>
                 </div>
               )}
 

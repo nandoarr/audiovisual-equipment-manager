@@ -895,13 +895,14 @@ export default function Dashboard({
                               <td style={styles.td}>
                                 <div style={styles.eqCellHeader}>
                                   <span style={styles.eqCellName}>{eq.name}</span>
-                                  <span className={
-                                    eq.status === 'Disponível' ? 'badge badge-available' : 
-                                    eq.status === 'Em Uso' ? 'badge badge-inuse' : 
-                                    'badge badge-maintenance'
-                                  } style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                                    {eq.status}
-                                  </span>
+                                  {eq.status !== 'Em Uso' && (
+                                    <span className={
+                                      eq.status === 'Disponível' ? 'badge badge-available' : 
+                                      'badge badge-maintenance'
+                                    } style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                                      {eq.status}
+                                    </span>
+                                  )}
                                 </div>
                                 {eq.description && (
                                   <div style={styles.eqCellDesc}>{eq.description}</div>

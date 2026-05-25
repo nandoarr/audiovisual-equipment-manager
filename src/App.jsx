@@ -307,6 +307,10 @@ export default function App() {
 
   // Write database updates (differential sync with Supabase or fallback to localStorage)
   const updateEquipmentList = async (newEquipment) => {
+    // Unconditionally update React state and localStorage cache for instant UI response and offline copy
+    setEquipment(newEquipment)
+    localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
+
     if (supabaseActive) {
       const supabase = getSupabase()
       const deleted = equipment.filter(e => !newEquipment.some(ne => ne.id === e.id))
@@ -319,21 +323,25 @@ export default function App() {
       try {
         if (deleted.length > 0) {
           const deleteIds = deleted.map(item => item.id)
-          await supabase.from('equipment').delete().in('id', deleteIds)
+          const { error } = await supabase.from('equipment').delete().in('id', deleteIds)
+          if (error) throw error
         }
         if (addedOrModified.length > 0) {
-          await supabase.from('equipment').upsert(addedOrModified)
+          const { error } = await supabase.from('equipment').upsert(addedOrModified)
+          if (error) throw error
         }
       } catch (e) {
         console.error("Erro ao sincronizar equipamentos com o Supabase:", e)
+        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
       }
-    } else {
-      setEquipment(newEquipment)
-      localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
     }
   }
 
   const updateLogsList = async (newLogs) => {
+    // Unconditionally update React state and localStorage cache
+    setLogs(newLogs)
+    localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+
     if (supabaseActive) {
       const supabase = getSupabase()
       const deleted = logs.filter(l => !newLogs.some(nl => nl.id === l.id))
@@ -346,21 +354,25 @@ export default function App() {
       try {
         if (deleted.length > 0) {
           const deleteIds = deleted.map(item => item.id)
-          await supabase.from('logs').delete().in('id', deleteIds)
+          const { error } = await supabase.from('logs').delete().in('id', deleteIds)
+          if (error) throw error
         }
         if (addedOrModified.length > 0) {
-          await supabase.from('logs').upsert(addedOrModified)
+          const { error } = await supabase.from('logs').upsert(addedOrModified)
+          if (error) throw error
         }
       } catch (e) {
         console.error("Erro ao sincronizar logs com o Supabase:", e)
+        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
       }
-    } else {
-      setLogs(newLogs)
-      localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
     }
   }
 
   const updatePeopleList = async (newPeople) => {
+    // Unconditionally update React state and localStorage cache
+    setPeople(newPeople)
+    localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
+
     if (supabaseActive) {
       const supabase = getSupabase()
       const deleted = people.filter(p => !newPeople.some(np => np.id === p.id))
@@ -373,17 +385,17 @@ export default function App() {
       try {
         if (deleted.length > 0) {
           const deleteIds = deleted.map(item => item.id)
-          await supabase.from('people').delete().in('id', deleteIds)
+          const { error } = await supabase.from('people').delete().in('id', deleteIds)
+          if (error) throw error
         }
         if (addedOrModified.length > 0) {
-          await supabase.from('people').upsert(addedOrModified)
+          const { error } = await supabase.from('people').upsert(addedOrModified)
+          if (error) throw error
         }
       } catch (e) {
         console.error("Erro ao sincronizar pessoas com o Supabase:", e)
+        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
       }
-    } else {
-      setPeople(newPeople)
-      localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
     }
   }
 

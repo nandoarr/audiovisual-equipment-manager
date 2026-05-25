@@ -73,6 +73,7 @@ export default function Dashboard({
 
   const [jobName, setJobName] = useState('')
   const [jobDate, setJobDate] = useState('')
+  const [editingJobId, setEditingJobId] = useState(null)
 
   // Calendar Integration States
   const [icloudConnected, setIcloudConnected] = useState(() => {
@@ -109,17 +110,39 @@ export default function Dashboard({
   const handleAddJob = (e) => {
     e.preventDefault()
     if (!jobName.trim() || !jobDate) return
-    const newJob = {
-      id: `job-${Date.now()}`,
-      name: jobName.trim(),
-      date: jobDate,
-      fileName: null,
-      fileSize: null,
-      fileData: null
+    
+    if (editingJobId) {
+      const updated = jobs.map(j => {
+        if (j.id === editingJobId) {
+          return {
+            ...j,
+            name: jobName.trim(),
+            date: jobDate
+          }
+        }
+        return j
+      })
+      updateJobs(updated)
+      setEditingJobId(null)
+    } else {
+      const newJob = {
+        id: `job-${Date.now()}`,
+        name: jobName.trim(),
+        date: jobDate,
+        fileName: null,
+        fileSize: null,
+        fileData: null
+      }
+      updateJobs([...jobs, newJob])
     }
-    updateJobs([...jobs, newJob])
     setJobName('')
     setJobDate('')
+  }
+
+  const handleEditJobClick = (job) => {
+    setEditingJobId(job.id)
+    setJobName(job.name)
+    setJobDate(job.date)
   }
 
   const handleJobFileUpload = (jobId, file) => {
@@ -1407,7 +1430,7 @@ export default function Dashboard({
             <div style={styles.reportsGrid}>
               {/* Left Column: Form to Add Job */}
               <div className="glass-panel" style={styles.formCard}>
-                <h3 style={styles.cardTitle}>Registrar Trabalho</h3>
+                <h3 style={styles.cardTitle}>{editingJobId ? 'Editar Trabalho' : 'Registrar Trabalho'}</h3>
                 <form onSubmit={handleAddJob} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div className="form-group">
                     <label htmlFor="job-name">Nome do Trabalho *</label>
@@ -1433,8 +1456,22 @@ export default function Dashboard({
                     />
                   </div>
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-                    <Plus size={16} /> Adicionar Trabalho
+                    {editingJobId ? 'Salvar Alterações' : 'Adicionar Trabalho'}
                   </button>
+                  {editingJobId && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ marginTop: '6px' }}
+                      onClick={() => {
+                        setEditingJobId(null)
+                        setJobName('')
+                        setJobDate('')
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  )}
                 </form>
               </div>
 
@@ -1516,14 +1553,14 @@ export default function Dashboard({
                                   </button>
                                 )}
 
-                                {/* Delete Job */}
+                                {/* Edit Job */}
                                 <button
-                                  className="btn btn-danger btn-icon"
+                                  className="btn btn-secondary btn-icon"
                                   style={{ padding: '6px' }}
-                                  onClick={() => handleDeleteJob(job.id)}
-                                  title="Excluir trabalho"
+                                  onClick={() => handleEditJobClick(job)}
+                                  title="Editar trabalho"
                                 >
-                                  <Trash2 size={15} />
+                                  <Edit3 size={15} color="var(--color-primary-hover)" />
                                 </button>
                               </div>
                             </td>

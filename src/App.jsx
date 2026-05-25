@@ -3,6 +3,7 @@ import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import EquipmentModal from './components/EquipmentModal'
 import LoanModal from './components/LoanModal'
+import { getSupabase, isSupabaseActive } from './supabase'
 
 const MOCK_PEOPLE = [
   { id: 'p-1', name: 'Amanda Silva' },
@@ -162,6 +163,7 @@ export default function App() {
   const [equipment, setEquipment] = useState([])
   const [logs, setLogs] = useState([])
   const [people, setPeople] = useState([])
+  const [supabaseActive, setSupabaseActive] = useState(false)
 
   // Modal Controls
   const [isEqModalOpen, setIsEqModalOpen] = useState(false)
@@ -170,8 +172,12 @@ export default function App() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false)
   const [equipmentForLoan, setEquipmentForLoan] = useState(null)
 
-  // 1. Initial Load from LocalStorage
+  // 1. Initial Load and Supabase Realtime Listeners
   useEffect(() => {
+    const supabase = getSupabase()
+    const active = isSupabaseActive()
+    setSupabaseActive(active)
+
     // Loaded shared password
     const savedPassword = localStorage.getItem('peixevoador_shared_password')
     if (savedPassword) {
@@ -206,49 +212,179 @@ export default function App() {
       localStorage.setItem('peixevoador_admin_password', 'admin2026')
     }
 
-    // Loaded Equipment
-    const savedEquipment = localStorage.getItem('peixevoador_equipment')
-    const savedLogs = localStorage.getItem('peixevoador_logs')
+    if (active) {
+      // ----------------------------------------------------
+      // SUPABASE SYNC ACTIVE
+      // ----------------------------------------------------
+      
+      const fetchEquipment = async () => {
+        const { data } = await supabase.from('equipment').select('*')
+        if (data) setEquipment(data)
+      }
 
-    if (savedEquipment) {
-      setEquipment(JSON.parse(savedEquipment))
-    } else {
-      // First time use, load mock data for demonstration
-      setEquipment(MOCK_EQUIPMENT)
-      localStorage.setItem('peixevoador_equipment', JSON.stringify(MOCK_EQUIPMENT))
-    }
+      const fetchLogs = async () => {
+        const { data } = await supabase.from('logs').select('*')
+        if (data) {
+          data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          setLogs(data)
+        }
+      }
 
-    if (savedLogs) {
-      setLogs(JSON.parse(savedLogs))
-    } else {
-      setLogs(MOCK_LOGS)
-      localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
-    }
+      const fetchPeople = async () => {
+        const { data } = await supabase.from('people').select('*')
+        if (data) setPeople(data)
+      }
 
-    // Loaded People
-    const savedPeople = localStorage.getItem('peixevoador_people')
-    if (savedPeople) {
-      setPeople(JSON.parse(savedPeople))
+      const fetchSettings = async () => {
+        const { data } = await supabase.from('settings').select('*').eq('key', 'passwords').single()
+        if (data && data.value) {
+          if (data.value.sharedPassword) setSharedPassword(data.value.sharedPassword)
+          if (data.value.adminPassword) setAdminPassword(data.value.adminPassword)
+        } else {
+          await supabase.from('settings').upsert({
+            key: 'passwords',
+            value: { sharedPassword: 'producao2026', adminPassword: 'admin2026' }
+          })
+        }
+      }
+
+      // Initial Fetch
+      fetchEquipment()
+      fetchLogs()
+      fetchPeople()
+      fetchSettings()
+
+      // Set up realtime channel subscription
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => {
+          fetchEquipment()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'logs' }, () => {
+          fetchLogs()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, () => {
+          fetchPeople()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+          fetchSettings()
+        })
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
     } else {
-      setPeople(MOCK_PEOPLE)
-      localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+      // ----------------------------------------------------
+      // LOCALSTORAGE SYNC FALLBACK
+      // ----------------------------------------------------
+      const savedEquipment = localStorage.getItem('peixevoador_equipment')
+      const savedLogs = localStorage.getItem('peixevoador_logs')
+      const savedPeople = localStorage.getItem('peixevoador_people')
+
+      if (savedEquipment) {
+        setEquipment(JSON.parse(savedEquipment))
+      } else {
+        setEquipment(MOCK_EQUIPMENT)
+        localStorage.setItem('peixevoador_equipment', JSON.stringify(MOCK_EQUIPMENT))
+      }
+
+      if (savedLogs) {
+        setLogs(JSON.parse(savedLogs))
+      } else {
+        setLogs(MOCK_LOGS)
+        localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
+      }
+
+      if (savedPeople) {
+        setPeople(JSON.parse(savedPeople))
+      } else {
+        setPeople(MOCK_PEOPLE)
+        localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+      }
     }
   }, [])
 
-  // Write database updates to localStorage
-  const updateEquipmentList = (newEquipment) => {
-    setEquipment(newEquipment)
-    localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
+  // Write database updates (differential sync with Supabase or fallback to localStorage)
+  const updateEquipmentList = async (newEquipment) => {
+    if (supabaseActive) {
+      const supabase = getSupabase()
+      const deleted = equipment.filter(e => !newEquipment.some(ne => ne.id === e.id))
+      const addedOrModified = newEquipment.filter(ne => {
+        const existing = equipment.find(e => e.id === ne.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(ne)
+      })
+
+      try {
+        if (deleted.length > 0) {
+          const deleteIds = deleted.map(item => item.id)
+          await supabase.from('equipment').delete().in('id', deleteIds)
+        }
+        if (addedOrModified.length > 0) {
+          await supabase.from('equipment').upsert(addedOrModified)
+        }
+      } catch (e) {
+        console.error("Erro ao sincronizar equipamentos com o Supabase:", e)
+      }
+    } else {
+      setEquipment(newEquipment)
+      localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
+    }
   }
 
-  const updateLogsList = (newLogs) => {
-    setLogs(newLogs)
-    localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+  const updateLogsList = async (newLogs) => {
+    if (supabaseActive) {
+      const supabase = getSupabase()
+      const deleted = logs.filter(l => !newLogs.some(nl => nl.id === l.id))
+      const addedOrModified = newLogs.filter(nl => {
+        const existing = logs.find(l => l.id === nl.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(nl)
+      })
+
+      try {
+        if (deleted.length > 0) {
+          const deleteIds = deleted.map(item => item.id)
+          await supabase.from('logs').delete().in('id', deleteIds)
+        }
+        if (addedOrModified.length > 0) {
+          await supabase.from('logs').upsert(addedOrModified)
+        }
+      } catch (e) {
+        console.error("Erro ao sincronizar logs com o Supabase:", e)
+      }
+    } else {
+      setLogs(newLogs)
+      localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+    }
   }
 
-  const updatePeopleList = (newPeople) => {
-    setPeople(newPeople)
-    localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
+  const updatePeopleList = async (newPeople) => {
+    if (supabaseActive) {
+      const supabase = getSupabase()
+      const deleted = people.filter(p => !newPeople.some(np => np.id === p.id))
+      const addedOrModified = newPeople.filter(np => {
+        const existing = people.find(p => p.id === np.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(np)
+      })
+
+      try {
+        if (deleted.length > 0) {
+          const deleteIds = deleted.map(item => item.id)
+          await supabase.from('people').delete().in('id', deleteIds)
+        }
+        if (addedOrModified.length > 0) {
+          await supabase.from('people').upsert(addedOrModified)
+        }
+      } catch (e) {
+        console.error("Erro ao sincronizar pessoas com o Supabase:", e)
+      }
+    } else {
+      setPeople(newPeople)
+      localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
+    }
   }
 
   // 2. Auth Actions
@@ -321,16 +457,71 @@ export default function App() {
       if (currentPass === adminPassword) {
         setAdminPassword(newPass)
         localStorage.setItem('peixevoador_admin_password', newPass)
+        if (supabaseActive) {
+          const supabase = getSupabase()
+          supabase.from('settings').upsert({
+            key: 'passwords',
+            value: { sharedPassword, adminPassword: newPass }
+          })
+        }
         return true
       }
     } else {
       if (currentPass === sharedPassword) {
         setSharedPassword(newPass)
         localStorage.setItem('peixevoador_shared_password', newPass)
+        if (supabaseActive) {
+          const supabase = getSupabase()
+          supabase.from('settings').upsert({
+            key: 'passwords',
+            value: { sharedPassword: newPass, adminPassword }
+          })
+        }
         return true
       }
     }
     return false
+  }
+
+  // Upload local data to Supabase database
+  const handleUploadLocalDataToSupabase = async () => {
+    const supabase = getSupabase()
+    if (!supabase) {
+      alert('Supabase não está inicializado.')
+      return
+    }
+
+    try {
+      const localEq = equipment
+      const localLogs = logs
+      const localPeople = people
+
+      if (localEq.length > 0) {
+        const { error } = await supabase.from('equipment').upsert(localEq)
+        if (error) throw error
+      }
+
+      if (localLogs.length > 0) {
+        const { error } = await supabase.from('logs').upsert(localLogs)
+        if (error) throw error
+      }
+
+      if (localPeople.length > 0) {
+        const { error } = await supabase.from('people').upsert(localPeople)
+        if (error) throw error
+      }
+
+      const { error } = await supabase.from('settings').upsert({
+        key: 'passwords',
+        value: { sharedPassword, adminPassword }
+      })
+      if (error) throw error
+
+      alert('Todos os dados locais foram enviados com sucesso para o Supabase!')
+    } catch (e) {
+      console.error(e)
+      alert(`Erro ao subir dados locais: ${e.message}`)
+    }
   }
 
   // 3. Equipment CRUD Actions
@@ -643,6 +834,8 @@ export default function App() {
           onEditPerson={handleEditPerson}
           onDeletePerson={handleDeletePerson}
           onQuickStatusChange={handleQuickStatusChange}
+          supabaseActive={supabaseActive}
+          onUploadLocalData={handleUploadLocalDataToSupabase}
         />
       ) : (
         <Login

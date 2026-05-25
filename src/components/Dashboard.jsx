@@ -29,8 +29,12 @@ import {
   X,
   FileText,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Database,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
+import { getSupabaseConfig, saveSupabaseConfig, deleteSupabaseConfig } from '../supabase'
 
 const CATEGORIES = [
   'Todos',
@@ -64,7 +68,9 @@ export default function Dashboard({
   onAddPerson,
   onEditPerson,
   onDeletePerson,
-  onQuickStatusChange
+  onQuickStatusChange,
+  supabaseActive = false,
+  onUploadLocalData
 }) {
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -100,6 +106,46 @@ export default function Dashboard({
   const [syncError, setSyncError] = useState('')
   const [editingPersonId, setEditingPersonId] = useState(null)
   const [editingPersonName, setEditingPersonName] = useState('')
+
+  // Supabase configuration states
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => {
+    const config = getSupabaseConfig()
+    return config ? config.url : ''
+  })
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => {
+    const config = getSupabaseConfig()
+    return config ? config.anonKey : ''
+  })
+  const [supabaseConfigError, setSupabaseConfigError] = useState('')
+
+  const handleSaveSupabaseConfig = (e) => {
+    e.preventDefault()
+    setSupabaseConfigError('')
+    const url = supabaseUrlInput.trim()
+    const key = supabaseKeyInput.trim()
+
+    if (!url || !key) {
+      setSupabaseConfigError('A URL e a Chave Anon do Supabase são obrigatórias.')
+      return
+    }
+
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      setSupabaseConfigError('A URL do Supabase deve iniciar com http:// ou https://')
+      return
+    }
+
+    saveSupabaseConfig(url, key)
+    alert('Configuração do Supabase salva com sucesso! A página será recarregada para ativar a conexão.')
+    window.location.reload()
+  }
+
+  const handleDisconnectSupabase = () => {
+    if (confirm('Deseja realmente desconectar o Supabase e voltar ao modo de Armazenamento Local?')) {
+      deleteSupabaseConfig()
+      alert('Supabase desconectado! O site será recarregado.')
+      window.location.reload()
+    }
+  }
 
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -1126,7 +1172,11 @@ export default function Dashboard({
                     )}
                   </div>
                 </div>
+
               </div>
+
+
+
             </div>
           </div>
         )}
@@ -1217,6 +1267,115 @@ export default function Dashboard({
           <div style={{...styles.tabContent, maxWidth: '800px', margin: '0 auto'}}>
             <div style={styles.settingsGrid}>
               
+              {/* Supabase Database Connection Block */}
+              <div className="glass-panel" style={styles.settingsCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <Database size={20} color="var(--color-primary)" />
+                  <h3 style={{...styles.cardTitle, margin: 0}}>Conexão Banco de Dados Supabase</h3>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {supabaseActive ? (
+                    <>
+                      <Wifi size={18} color="var(--color-success)" />
+                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
+                        Status: <span style={{ color: 'var(--color-success)' }}>Conectado (Nuvem Supabase Realtime)</span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff size={18} color="var(--color-warning)" />
+                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
+                        Status: <span style={{ color: 'var(--color-warning)' }}>Desconectado (Modo LocalStorage Offline)</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <p style={styles.cardDescription}>
+                  Sincronize equipamentos, responsáveis, senhas e histórico em tempo real com o banco de dados PostgreSQL do Supabase (opção gratuita disponível).
+                </p>
+
+                {isAdmin ? (
+                  <form onSubmit={handleSaveSupabaseConfig} style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor="supabaseUrl">Supabase URL</label>
+                      <input
+                        type="text"
+                        id="supabaseUrl"
+                        className="form-input"
+                        placeholder="https://xyzxyzxyz.supabase.co"
+                        value={supabaseUrlInput}
+                        onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor="supabaseKey">Supabase Anon Key</label>
+                      <input
+                        type="password"
+                        id="supabaseKey"
+                        className="form-input"
+                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        value={supabaseKeyInput}
+                        onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {supabaseConfigError && (
+                      <div style={{
+                        ...styles.msgBox,
+                        color: '#f87171',
+                        background: 'rgba(248, 113, 113, 0.1)',
+                        border: '1px solid rgba(248, 113, 113, 0.2)',
+                        marginBottom: 0,
+                        marginTop: '10px'
+                      }}>
+                        {supabaseConfigError}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '14px' }}>
+                      <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                        Salvar e Conectar
+                      </button>
+                      
+                      {supabaseActive && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={handleDisconnectSupabase}
+                            style={{ flex: 1 }}
+                          >
+                            Desconectar Supabase
+                          </button>
+                          
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={onUploadLocalData}
+                            style={{ width: '100%', marginTop: '10px' }}
+                            title="Sobe os dados do LocalStorage para o Supabase para que o banco comece preenchido"
+                          >
+                            Enviar Dados Locais para Nuvem
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </form>
+                ) : (
+                  <div style={{...styles.adminRestrictionNotice, marginTop: '20px'}}>
+                    <Lock size={16} color="var(--text-muted)" style={{ minWidth: '16px' }} />
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Configurações de banco de dados restritas a administradores.
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Change Password Block */}
               {isAdmin && (
                 <div className="glass-panel" style={styles.settingsCard}>

@@ -2064,6 +2064,7 @@ const styles = {
     borderRadius: '6px',
     fontSize: '0.8rem',
     color: 'var(--text-secondary)',
+    whiteSpace: 'nowrap',
   },
   serialLabel: {
     fontFamily: 'monospace',

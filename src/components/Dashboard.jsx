@@ -25,7 +25,11 @@ import {
   Video,
   Users,
   UserPlus,
-  Lock
+  Lock,
+  X,
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 const CATEGORIES = [
@@ -59,6 +63,144 @@ export default function Dashboard({
   onQuickStatusChange
 }) {
   const [activeTab, setActiveTab] = useState('overview')
+
+  // Jobs State (Reports)
+  const [jobs, setJobs] = useState(() => {
+    const saved = localStorage.getItem('peixevoador_jobs')
+    return saved ? JSON.parse(saved) : []
+  })
+
+  const [jobName, setJobName] = useState('')
+  const [jobDate, setJobDate] = useState('')
+
+  // Calendar Integration States
+  const [googleConnected, setGoogleConnected] = useState(() => {
+    return localStorage.getItem('peixevoador_google_connected') === 'true'
+  })
+  const [googleEmail, setGoogleEmail] = useState(() => {
+    return localStorage.getItem('peixevoador_google_email') || ''
+  })
+  const [icloudConnected, setIcloudConnected] = useState(() => {
+    return localStorage.getItem('peixevoador_icloud_connected') === 'true'
+  })
+  const [icloudEmail, setIcloudEmail] = useState(() => {
+    return localStorage.getItem('peixevoador_icloud_email') || ''
+  })
+
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
+  const [isIcloudModalOpen, setIsIcloudModalOpen] = useState(false)
+  const [tempEmail, setTempEmail] = useState('')
+
+  // Calendar Navigation State
+  const [currentDate, setCurrentDate] = useState(new Date())
+
+  // Helpers to update states in localStorage
+  const updateJobs = (newJobs) => {
+    setJobs(newJobs)
+    localStorage.setItem('peixevoador_jobs', JSON.stringify(newJobs))
+  }
+
+  const handleAddJob = (e) => {
+    e.preventDefault()
+    if (!jobName.trim() || !jobDate) return
+    const newJob = {
+      id: `job-${Date.now()}`,
+      name: jobName.trim(),
+      date: jobDate,
+      fileName: null,
+      fileSize: null,
+      fileData: null
+    }
+    updateJobs([...jobs, newJob])
+    setJobName('')
+    setJobDate('')
+  }
+
+  const handleJobFileUpload = (jobId, file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const updated = jobs.map(j => {
+        if (j.id === jobId) {
+          return {
+            ...j,
+            fileName: file.name,
+            fileSize: (file.size / 1024).toFixed(1) + ' KB',
+            fileData: evt.target.result
+          }
+        }
+        return j
+      })
+      updateJobs(updated)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleJobFileDownload = (job) => {
+    if (!job.fileData) return
+    const link = document.createElement('a')
+    link.href = job.fileData
+    link.download = job.fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleRemoveJobFile = (jobId) => {
+    const updated = jobs.map(j => {
+      if (j.id === jobId) {
+        return {
+          ...j,
+          fileName: null,
+          fileSize: null,
+          fileData: null
+        }
+      }
+      return j
+    })
+    updateJobs(updated)
+  }
+
+  const handleDeleteJob = (jobId) => {
+    if (confirm('Deseja excluir este trabalho?')) {
+      const updated = jobs.filter(j => j.id !== jobId)
+      updateJobs(updated)
+    }
+  }
+
+  const connectGoogle = (email) => {
+    setGoogleConnected(true)
+    setGoogleEmail(email)
+    localStorage.setItem('peixevoador_google_connected', 'true')
+    localStorage.setItem('peixevoador_google_email', email)
+  }
+
+  const disconnectGoogle = () => {
+    setGoogleConnected(false)
+    setGoogleEmail('')
+    localStorage.removeItem('peixevoador_google_connected')
+    localStorage.removeItem('peixevoador_google_email')
+  }
+
+  const connectIcloud = (email) => {
+    setIcloudConnected(true)
+    setIcloudEmail(email)
+    localStorage.setItem('peixevoador_icloud_connected', 'true')
+    localStorage.setItem('peixevoador_icloud_email', email)
+  }
+
+  const disconnectIcloud = () => {
+    setIcloudConnected(false)
+    setIcloudEmail('')
+    localStorage.removeItem('peixevoador_icloud_connected')
+    localStorage.removeItem('peixevoador_icloud_email')
+  }
+
+  const formatJobDate = (dateStr) => {
+    if (!dateStr) return '-'
+    const [y, m, d] = dateStr.split('-')
+    return `${d}/${m}/${y}`
+  }
   
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -326,6 +468,122 @@ export default function Dashboard({
     return `Há ${diffDays} dia(s)`
   }
 
+  // --- Calendar Event Aggregation & Grid Calculation ---
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+
+  const firstDayOfMonth = new Date(year, month, 1)
+  const startDayOfWeek = firstDayOfMonth.getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const calendarCells = []
+  const prevMonthDays = new Date(year, month, 0).getDate()
+
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    calendarCells.push({
+      dayNum: prevMonthDays - i,
+      isCurrentMonth: false,
+      date: new Date(year, month - 1, prevMonthDays - i)
+    })
+  }
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    calendarCells.push({
+      dayNum: i,
+      isCurrentMonth: true,
+      date: new Date(year, month, i)
+    })
+  }
+
+  const totalCells = Math.ceil(calendarCells.length / 7) * 7
+  const nextMonthDaysCount = totalCells - calendarCells.length
+  for (let i = 1; i <= nextMonthDaysCount; i++) {
+    calendarCells.push({
+      dayNum: i,
+      isCurrentMonth: false,
+      date: new Date(year, month + 1, i)
+    })
+  }
+
+  // Aggregated events list
+  const eqEvents = equipment
+    .filter(e => e.status === 'Em Uso' && e.expectedReturnDate)
+    .map(e => ({
+      type: 'return',
+      title: `Devolução: ${e.name} (${e.borrowerName})`,
+      date: new Date(e.expectedReturnDate),
+      color: '#f59e0b'
+    }))
+
+  const googleEvents = googleConnected ? [
+    {
+      type: 'google',
+      title: '🎬 Gravação: Clipe Represa',
+      date: new Date(year, month, 10, 9, 0),
+      color: '#3b82f6'
+    },
+    {
+      type: 'google',
+      title: '📅 Reunião: Alinhamento Pré-Prod',
+      date: new Date(year, month, 15, 14, 0),
+      color: '#3b82f6'
+    },
+    {
+      type: 'google',
+      title: '🎥 Gravação: Documentário Estúdio',
+      date: new Date(year, month, 22, 10, 0),
+      color: '#3b82f6'
+    }
+  ] : []
+
+  const icloudEvents = icloudConnected ? [
+    {
+      type: 'icloud',
+      title: '📷 Sessão Fotográfica Externa',
+      date: new Date(year, month, 5, 8, 30),
+      color: '#10b981'
+    },
+    {
+      type: 'icloud',
+      title: '👗 Comercial: Ensaio Figurino',
+      date: new Date(year, month, 18, 16, 0),
+      color: '#10b981'
+    }
+  ] : []
+
+  const jobEvents = jobs.map(j => ({
+    type: 'job',
+    title: `💼 Trabalho: ${j.name}`,
+    date: new Date(j.date + 'T12:00:00'),
+    color: '#8b5cf6'
+  }))
+
+  const allEvents = [...eqEvents, ...googleEvents, ...icloudEvents, ...jobEvents]
+
+  const getCellEvents = (cellDate) => {
+    return allEvents.filter(evt => 
+      evt.date.getDate() === cellDate.getDate() &&
+      evt.date.getMonth() === cellDate.getMonth() &&
+      evt.date.getFullYear() === cellDate.getFullYear()
+    )
+  }
+
+  const getMonthName = (m) => {
+    const names = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    return names[m]
+  }
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1))
+  }
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1))
+  }
+
   return (
     <div style={styles.dashboardContainer}>
       {/* Header */}
@@ -350,6 +608,18 @@ export default function Dashboard({
             onClick={() => setActiveTab('inventory')}
           >
             <Sliders size={16} /> Inventário
+          </button>
+          <button 
+            style={{...styles.navBtn, ...(activeTab === 'reports' ? styles.navActive : {})}}
+            onClick={() => setActiveTab('reports')}
+          >
+            <FileText size={16} /> Relatórios
+          </button>
+          <button 
+            style={{...styles.navBtn, ...(activeTab === 'calendars' ? styles.navActive : {})}}
+            onClick={() => setActiveTab('calendars')}
+          >
+            <Calendar size={16} /> Calendários
           </button>
           <button 
             style={{...styles.navBtn, ...(activeTab === 'history' ? styles.navActive : {})}}
@@ -1041,6 +1311,364 @@ export default function Dashboard({
             </div>
           </div>
         )}
+
+        {/* TAB 5: REPORTS */}
+        {activeTab === 'reports' && (
+          <div style={styles.tabContent}>
+            <div style={styles.reportsGrid}>
+              {/* Left Column: Form to Add Job */}
+              <div className="glass-panel" style={styles.formCard}>
+                <h3 style={styles.cardTitle}>Registrar Trabalho</h3>
+                <form onSubmit={handleAddJob} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="form-group">
+                    <label htmlFor="job-name">Nome do Trabalho *</label>
+                    <input
+                      type="text"
+                      id="job-name"
+                      className="form-input"
+                      required
+                      placeholder="Ex: Comercial Nike"
+                      value={jobName}
+                      onChange={(e) => setJobName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="job-date">Data do Trabalho *</label>
+                    <input
+                      type="date"
+                      id="job-date"
+                      className="form-input"
+                      required
+                      value={jobDate}
+                      onChange={(e) => setJobDate(e.target.value)}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
+                    <Plus size={16} /> Adicionar Trabalho
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Table of Jobs */}
+              <div className="glass-panel" style={styles.jobsCard}>
+                <h3 style={styles.cardTitle}>Trabalhos & Relatórios</h3>
+                <div style={styles.tableWrapper}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>Trabalho</th>
+                        <th style={styles.th}>Data</th>
+                        <th style={styles.th}>Arquivo Relatório</th>
+                        <th style={{...styles.th, textAlign: 'right'}}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobs.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" style={styles.tdEmpty}>
+                            Nenhum trabalho registrado. Use o formulário ao lado para cadastrar.
+                          </td>
+                        </tr>
+                      ) : (
+                        jobs.map(job => (
+                          <tr key={job.id} style={styles.tr}>
+                            <td style={styles.td}>
+                              <strong style={{ color: '#ffffff' }}>{job.name}</strong>
+                            </td>
+                            <td style={styles.td}>{formatJobDate(job.date)}</td>
+                            <td style={styles.td}>
+                              {job.fileName ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <FileText size={16} color="var(--color-primary)" />
+                                  <span style={{ fontSize: '0.85rem' }} title={`${job.fileName} (${job.fileSize})`}>
+                                    {job.fileName} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({job.fileSize})</span>
+                                  </span>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Pendente</span>
+                              )}
+                            </td>
+                            <td style={{...styles.td, textAlign: 'right'}}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {/* File Upload */}
+                                <div style={styles.uploadBtnWrapper}>
+                                  <button className="btn btn-secondary btn-icon" style={{ padding: '6px' }} title="Fazer upload de relatório">
+                                    <FileUp size={15} />
+                                  </button>
+                                  <input
+                                    type="file"
+                                    style={styles.uploadInputHidden}
+                                    accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg"
+                                    onChange={(e) => handleJobFileUpload(job.id, e.target.files[0])}
+                                  />
+                                </div>
+
+                                {/* File Download */}
+                                {job.fileData && (
+                                  <button
+                                    className="btn btn-secondary btn-icon"
+                                    style={{ padding: '6px' }}
+                                    onClick={() => handleJobFileDownload(job)}
+                                    title="Baixar relatório"
+                                  >
+                                    <FileDown size={15} color="var(--color-primary-hover)" />
+                                  </button>
+                                )}
+
+                                {/* Remove File */}
+                                {job.fileName && (
+                                  <button
+                                    className="btn btn-secondary btn-icon"
+                                    style={{ padding: '6px' }}
+                                    onClick={() => handleRemoveJobFile(job.id)}
+                                    title="Remover arquivo"
+                                  >
+                                    <X size={15} color="#ef4444" />
+                                  </button>
+                                )}
+
+                                {/* Delete Job */}
+                                <button
+                                  className="btn btn-danger btn-icon"
+                                  style={{ padding: '6px' }}
+                                  onClick={() => handleDeleteJob(job.id)}
+                                  title="Excluir trabalho"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: CALENDARS */}
+        {activeTab === 'calendars' && (
+          <div style={styles.tabContent}>
+            <div style={styles.calendarLayout}>
+              {/* Calendar Grid Box */}
+              <div className="glass-panel" style={styles.calendarCard}>
+                <div style={styles.calendarHeader}>
+                  <h2 style={styles.calendarMonthTitle}>
+                    {getMonthName(month)} {year}
+                  </h2>
+                  <div style={styles.calendarNav}>
+                    <button style={styles.calendarNavBtn} onClick={handlePrevMonth}>
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button style={styles.calendarNavBtn} onClick={() => setCurrentDate(new Date())}>
+                      Hoje
+                    </button>
+                    <button style={styles.calendarNavBtn} onClick={handleNextMonth}>
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div style={styles.calendarGrid}>
+                  {/* Day Headers */}
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
+                    <div key={d} style={styles.calendarDayHeader}>{d}</div>
+                  ))}
+
+                  {/* Day Cells */}
+                  {calendarCells.map((cell, idx) => {
+                    const cellEvents = getCellEvents(cell.date)
+                    const isToday = cell.date.getDate() === new Date().getDate() &&
+                                    cell.date.getMonth() === new Date().getMonth() &&
+                                    cell.date.getFullYear() === new Date().getFullYear()
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          ...styles.calendarDayCell,
+                          opacity: cell.isCurrentMonth ? 1 : 0.4,
+                          background: isToday ? 'rgba(89, 143, 191, 0.08)' : 'rgba(22, 20, 31, 0.3)',
+                          border: isToday ? '1px solid rgba(89, 143, 191, 0.3)' : '1px solid rgba(255, 255, 255, 0.02)'
+                        }}
+                      >
+                        <span style={{
+                          ...styles.calendarDayNum,
+                          color: isToday ? 'var(--color-primary-hover)' : 'var(--text-secondary)'
+                        }}>
+                          {cell.dayNum}
+                        </span>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                          {cellEvents.map((evt, eIdx) => (
+                            <span
+                              key={eIdx}
+                              style={{
+                                ...styles.calendarEventBadge,
+                                backgroundColor: evt.color
+                              }}
+                              title={evt.title}
+                            >
+                              {evt.title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Sidebar: Connections */}
+              <div style={styles.integrationCard}>
+                {/* Google Calendar Card */}
+                <div className="glass-panel" style={styles.integrationCardItem}>
+                  <div style={styles.integrationHeader}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: googleConnected ? 'var(--color-success)' : 'var(--text-muted)' }}></div>
+                    <h3 style={styles.integrationTitle}>Google Calendar</h3>
+                    <span style={{
+                      ...styles.integrationStatus,
+                      background: googleConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
+                      color: googleConnected ? 'var(--color-success)' : 'var(--text-secondary)'
+                    }}>
+                      {googleConnected ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                    {googleConnected 
+                      ? `Conectado à conta: ${googleEmail}`
+                      : 'Vincule sua Google Agenda para visualizar e sincronizar datas de produções e gravações automaticamente.'
+                    }
+                  </p>
+                  {googleConnected ? (
+                    <button className="btn btn-danger btn-icon" style={styles.connectionBtn} onClick={disconnectGoogle}>
+                      Desconectar
+                    </button>
+                  ) : (
+                    <button className="btn btn-primary" style={styles.connectionBtn} onClick={() => { setTempEmail(''); setIsGoogleModalOpen(true); }}>
+                      Conectar Conta
+                    </button>
+                  )}
+                </div>
+
+                {/* iCloud Calendar Card */}
+                <div className="glass-panel" style={styles.integrationCardItem}>
+                  <div style={styles.integrationHeader}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: icloudConnected ? 'var(--color-success)' : 'var(--text-muted)' }}></div>
+                    <h3 style={styles.integrationTitle}>iCloud Calendar</h3>
+                    <span style={{
+                      ...styles.integrationStatus,
+                      background: icloudConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
+                      color: icloudConnected ? 'var(--color-success)' : 'var(--text-secondary)'
+                    }}>
+                      {icloudConnected ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                    {icloudConnected 
+                      ? `Conectado à conta: ${icloudEmail}`
+                      : 'Vincule sua agenda do iCloud para sincronizar compromissos de locações e entregas do ecossistema Apple.'
+                    }
+                  </p>
+                  {icloudConnected ? (
+                    <button className="btn btn-danger btn-icon" style={styles.connectionBtn} onClick={disconnectIcloud}>
+                      Desconectar
+                    </button>
+                  ) : (
+                    <button className="btn btn-primary" style={styles.connectionBtn} onClick={() => { setTempEmail(''); setIsIcloudModalOpen(true); }}>
+                      Conectar iCloud
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Google Calendar Connection Modal */}
+      {isGoogleModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsGoogleModalOpen(false)}>
+          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <button className="modal-close" onClick={() => setIsGoogleModalOpen(false)}>
+              <X size={24} />
+            </button>
+            <h2 className="modal-title">Conectar Google Agenda</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              if (tempEmail.trim()) {
+                connectGoogle(tempEmail.trim())
+                setIsGoogleModalOpen(false)
+                setTempEmail('')
+              }
+            }}>
+              <div className="form-group">
+                <label htmlFor="google-email">E-mail da Conta Google</label>
+                <input
+                  type="email"
+                  id="google-email"
+                  className="form-input"
+                  required
+                  placeholder="exemplo@gmail.com"
+                  value={tempEmail}
+                  onChange={(e) => setTempEmail(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsGoogleModalOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Sincronizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* iCloud Connection Modal */}
+      {isIcloudModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsIcloudModalOpen(false)}>
+          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <button className="modal-close" onClick={() => setIsIcloudModalOpen(false)}>
+              <X size={24} />
+            </button>
+            <h2 className="modal-title">Conectar Agenda iCloud</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              if (tempEmail.trim()) {
+                connectIcloud(tempEmail.trim())
+                setIsIcloudModalOpen(false)
+                setTempEmail('')
+              }
+            }}>
+              <div className="form-group">
+                <label htmlFor="icloud-email">E-mail ou ID Apple iCloud</label>
+                <input
+                  type="email"
+                  id="icloud-email"
+                  className="form-input"
+                  required
+                  placeholder="exemplo@icloud.com"
+                  value={tempEmail}
+                  onChange={(e) => setTempEmail(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsIcloudModalOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Sincronizar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   )
@@ -1669,5 +2297,164 @@ const styles = {
     flexWrap: 'wrap',
     gap: '8px',
     marginBottom: '4px',
+  },
+  reportsGrid: {
+    display: 'flex',
+    gap: '20px',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  formCard: {
+    flex: '1 1 320px',
+    padding: '24px',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  jobsCard: {
+    flex: '2.5 1 600px',
+    padding: '24px',
+    borderRadius: '16px',
+  },
+  calendarLayout: {
+    display: 'flex',
+    gap: '20px',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  calendarCard: {
+    flex: '2.5 1 700px',
+    padding: '24px',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  integrationCard: {
+    flex: '1 1 300px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  calendarHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  calendarMonthTitle: {
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: '#ffffff',
+    fontFamily: 'var(--font-heading)',
+  },
+  calendarNav: {
+    display: 'flex',
+    gap: '8px',
+  },
+  calendarNavBtn: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '8px',
+    padding: '6px 12px',
+    fontSize: '0.85rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#ffffff',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  calendarGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '4px',
+    background: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: '12px',
+    padding: '4px',
+    overflow: 'hidden',
+  },
+  calendarDayHeader: {
+    textAlign: 'center',
+    padding: '10px 0',
+    fontSize: '0.8rem',
+    fontWeight: '700',
+    color: 'var(--text-secondary)',
+    textTransform: 'uppercase',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    fontFamily: 'var(--font-heading)',
+  },
+  calendarDayCell: {
+    minHeight: '100px',
+    background: 'rgba(22, 20, 31, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.02)',
+    borderRadius: '8px',
+    padding: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    transition: 'all 0.2s',
+  },
+  calendarDayNum: {
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    alignSelf: 'flex-start',
+  },
+  calendarEventBadge: {
+    fontSize: '0.7rem',
+    padding: '3px 6px',
+    borderRadius: '4px',
+    color: '#ffffff',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontWeight: '600',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+  },
+  integrationCardItem: {
+    padding: '20px',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  integrationHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  integrationTitle: {
+    fontSize: '1rem',
+    fontWeight: '700',
+    color: '#ffffff',
+    fontFamily: 'var(--font-heading)',
+  },
+  integrationStatus: {
+    fontSize: '0.75rem',
+    padding: '2px 8px',
+    borderRadius: '20px',
+    fontWeight: '600',
+    display: 'inline-block',
+  },
+  connectionBtn: {
+    width: '100%',
+    padding: '10px',
+    fontSize: '0.85rem',
+  },
+  uploadBtnWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+    display: 'inline-block',
+  },
+  uploadInputHidden: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    opacity: 0,
+    cursor: 'pointer',
+    width: '100%',
+    height: '100%',
   }
 }

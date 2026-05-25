@@ -662,7 +662,7 @@ export default function Dashboard({
     <div style={styles.dashboardContainer}>
       {/* Header */}
       <header style={styles.header} className="glass-panel">
-        <div style={styles.headerBrand}>
+        <div style={styles.headerBrand} onClick={() => setActiveTab('overview')}>
           <img src={logo} alt="Logo Peixe Voador" style={styles.logoImageHeader} />
           <div>
             <h1 style={styles.headerTitle}>PEIXE VOADOR</h1>
@@ -1742,6 +1742,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    cursor: 'pointer',
   },
   logoImageHeader: {
     height: '42px',

@@ -1023,10 +1023,6 @@ export default function Dashboard({
 
                   {isAdmin ? (
                     <>
-                      <p style={styles.peopleDesc}>
-                        Cadastre as pessoas autorizadas a retirar equipamentos.
-                      </p>
-
                       <form onSubmit={handleAddPersonSubmit} style={styles.peopleForm}>
                         <input
                           type="text"

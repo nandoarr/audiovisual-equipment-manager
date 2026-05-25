@@ -23,7 +23,8 @@ import {
   Send,
   Video,
   Users,
-  UserPlus
+  UserPlus,
+  Lock
 } from 'lucide-react'
 
 const CATEGORIES = [

@@ -4,6 +4,14 @@ import Dashboard from './components/Dashboard'
 import EquipmentModal from './components/EquipmentModal'
 import LoanModal from './components/LoanModal'
 
+const MOCK_PEOPLE = [
+  { id: 'p-1', name: 'Amanda Silva' },
+  { id: 'p-2', name: 'Bruno Rodrigues' },
+  { id: 'p-3', name: 'Clara Souza' },
+  { id: 'p-4', name: 'Diego Santos' },
+  { id: 'p-5', name: 'Mariana Costa' }
+]
+
 // Default mock data for testing and initial empty database population
 const MOCK_EQUIPMENT = [
   {
@@ -151,6 +159,7 @@ export default function App() {
   // Database
   const [equipment, setEquipment] = useState([])
   const [logs, setLogs] = useState([])
+  const [people, setPeople] = useState([])
 
   // Modal Controls
   const [isEqModalOpen, setIsEqModalOpen] = useState(false)
@@ -193,6 +202,15 @@ export default function App() {
       setLogs(MOCK_LOGS)
       localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
     }
+
+    // Loaded People
+    const savedPeople = localStorage.getItem('peixevoador_people')
+    if (savedPeople) {
+      setPeople(JSON.parse(savedPeople))
+    } else {
+      setPeople(MOCK_PEOPLE)
+      localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+    }
   }, [])
 
   // Write database updates to localStorage
@@ -204,6 +222,11 @@ export default function App() {
   const updateLogsList = (newLogs) => {
     setLogs(newLogs)
     localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+  }
+
+  const updatePeopleList = (newPeople) => {
+    setPeople(newPeople)
+    localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
   }
 
   // 2. Auth Actions
@@ -368,19 +391,50 @@ export default function App() {
   }
 
   // 5. Database Management Actions
-  const handleImportData = (importedEq, importedLogs) => {
+  const handleAddPerson = (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (people.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('Esta pessoa já está cadastrada.')
+      return
+    }
+    const newPerson = {
+      id: `p-${Date.now()}`,
+      name: trimmed
+    }
+    updatePeopleList([...people, newPerson])
+  }
+
+  const handleDeletePerson = (id) => {
+    const personToDelete = people.find(p => p.id === id)
+    if (!personToDelete) return
+    const isAssigned = equipment.some(e => e.status === 'Em Uso' && e.borrowerName === personToDelete.name)
+    if (isAssigned) {
+      const confirmDelete = confirm(`ATENÇÃO: ${personToDelete.name} está atualmente com equipamentos emprestados. Tem certeza de que deseja excluí-la do cadastro?`)
+      if (!confirmDelete) return
+    }
+    const updated = people.filter(p => p.id !== id)
+    updatePeopleList(updated)
+  }
+
+  const handleImportData = (importedEq, importedLogs, importedPeople) => {
     updateEquipmentList(importedEq)
     updateLogsList(importedLogs)
+    if (importedPeople) {
+      updatePeopleList(importedPeople)
+    }
   }
 
   const handleLoadMockData = () => {
     updateEquipmentList(MOCK_EQUIPMENT)
     updateLogsList(MOCK_LOGS)
+    updatePeopleList(MOCK_PEOPLE)
   }
 
   const handleClearAllData = () => {
     updateEquipmentList([])
     updateLogsList([])
+    updatePeopleList([])
   }
 
   return (
@@ -394,6 +448,7 @@ export default function App() {
           onLogout={handleLogout}
           equipment={equipment}
           logs={logs}
+          people={people}
           onAddEquipment={handleOpenAddModal}
           onUpdateEquipment={handleOpenEditModal}
           onDeleteEquipment={handleDeleteEquipment}
@@ -403,6 +458,8 @@ export default function App() {
           onImportData={handleImportData}
           onLoadMockData={handleLoadMockData}
           onClearAllData={handleClearAllData}
+          onAddPerson={handleAddPerson}
+          onDeletePerson={handleDeletePerson}
         />
       ) : (
         <Login onLogin={handleLogin} sharedPassword={sharedPassword} />
@@ -422,6 +479,7 @@ export default function App() {
         onClose={() => setIsLoanModalOpen(false)}
         onConfirm={handleConfirmLoan}
         equipment={equipmentForLoan}
+        people={people}
       />
     </>
   )

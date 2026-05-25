@@ -21,7 +21,9 @@ import {
   Edit3,
   UserCheck,
   Send,
-  Video
+  Video,
+  Users,
+  UserPlus
 } from 'lucide-react'
 
 const CATEGORIES = [
@@ -39,6 +41,7 @@ export default function Dashboard({
   onLogout,
   equipment,
   logs,
+  people = [],
   onAddEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
@@ -47,7 +50,9 @@ export default function Dashboard({
   onChangePassword,
   onImportData,
   onLoadMockData,
-  onClearAllData
+  onClearAllData,
+  onAddPerson,
+  onDeletePerson
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   
@@ -67,6 +72,16 @@ export default function Dashboard({
   // Change password state
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' })
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' })
+
+  // People registration state
+  const [newPersonName, setNewPersonName] = useState('')
+
+  const handleAddPersonSubmit = (e) => {
+    e.preventDefault()
+    if (!newPersonName.trim()) return
+    onAddPerson(newPersonName)
+    setNewPersonName('')
+  }
 
   // Statistics calculation
   const totalCount = equipment.length
@@ -126,7 +141,7 @@ export default function Dashboard({
   }
 
   const handleBackupExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ equipment, logs }))
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ equipment, logs, people }))
     const downloadAnchor = document.createElement('a')
     downloadAnchor.setAttribute("href", dataStr)
     downloadAnchor.setAttribute("download", `peixe_voador_backup_${new Date().toISOString().slice(0,10)}.json`)
@@ -143,7 +158,7 @@ export default function Dashboard({
       try {
         const parsed = JSON.parse(event.target.result)
         if (parsed.equipment && parsed.logs) {
-          onImportData(parsed.equipment, parsed.logs)
+          onImportData(parsed.equipment, parsed.logs, parsed.people || [])
           alert('Dados importados com sucesso!')
         } else {
           alert('Arquivo inválido. Certifique-se de que é um backup válido do Peixe Voador Equipamentos.')
@@ -511,166 +526,224 @@ export default function Dashboard({
               </div>
             </div>
 
-            {/* Inventory List */}
-            <div className="glass-panel" style={styles.tableCard}>
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Equipamento</th>
-                      <th style={styles.th}>Categoria</th>
-                      <th style={styles.th}>Identificador / Série</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.th}>Com quem está?</th>
-                      <th style={styles.th}>Desde</th>
-                      <th style={{...styles.th, textAlign: 'right'}}>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEquipment.length === 0 ? (
+            {/* Inventory List and People Registration */}
+            <div style={styles.inventoryLayout}>
+              {/* Left Column: Equipment Table */}
+              <div className="glass-panel" style={{ ...styles.tableCard, flex: '2.5 1 650px', marginBottom: 0 }}>
+                <div style={styles.tableWrapper}>
+                  <table style={styles.table}>
+                    <thead>
                       <tr>
-                        <td colSpan="7" style={styles.tdEmpty}>
-                          Nenhum equipamento encontrado com os filtros aplicados.
-                        </td>
+                        <th style={styles.th}>Equipamento</th>
+                        <th style={styles.th}>Categoria</th>
+                        <th style={styles.th}>Identificador / Série</th>
+                        <th style={styles.th}>Status</th>
+                        <th style={styles.th}>Com quem está?</th>
+                        <th style={styles.th}>Desde</th>
+                        <th style={{...styles.th, textAlign: 'right'}}>Ações</th>
                       </tr>
-                    ) : (
-                      filteredEquipment.map(eq => {
-                        const isOverdue = eq.status === 'Em Uso' && eq.expectedReturnDate && new Date(eq.expectedReturnDate) < new Date()
-                        return (
-                          <tr key={eq.id} style={styles.tr}>
-                            <td style={styles.td}>
-                              <div style={styles.eqCellName}>{eq.name}</div>
-                              {eq.description && (
-                                <div style={styles.eqCellDesc}>{eq.description}</div>
-                              )}
-                            </td>
-                            <td style={styles.td}>
-                              <span style={styles.categoryLabel}>{eq.category}</span>
-                            </td>
-                            <td style={styles.td}>
-                              <span style={styles.serialLabel}>{eq.serialNumber || '-'}</span>
-                            </td>
-                            <td style={styles.td}>
-                              <span className={
-                                eq.status === 'Disponível' ? 'badge badge-available' : 
-                                eq.status === 'Em Uso' ? 'badge badge-inuse' : 
-                                'badge badge-maintenance'
-                              }>
-                                {eq.status}
-                              </span>
-                              {isOverdue && (
-                                <span style={styles.overdueBadge} title="Devolução pendente / atrasada!">
-                                  Atrasado
+                    </thead>
+                    <tbody>
+                      {filteredEquipment.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" style={styles.tdEmpty}>
+                            Nenhum equipamento encontrado com os filtros aplicados.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredEquipment.map(eq => {
+                          const isOverdue = eq.status === 'Em Uso' && eq.expectedReturnDate && new Date(eq.expectedReturnDate) < new Date()
+                          return (
+                            <tr key={eq.id} style={styles.tr}>
+                              <td style={styles.td}>
+                                <div style={styles.eqCellName}>{eq.name}</div>
+                                {eq.description && (
+                                  <div style={styles.eqCellDesc}>{eq.description}</div>
+                                )}
+                              </td>
+                              <td style={styles.td}>
+                                <span style={styles.categoryLabel}>{eq.category}</span>
+                              </td>
+                              <td style={styles.td}>
+                                <span style={styles.serialLabel}>{eq.serialNumber || '-'}</span>
+                              </td>
+                              <td style={styles.td}>
+                                <span className={
+                                  eq.status === 'Disponível' ? 'badge badge-available' : 
+                                  eq.status === 'Em Uso' ? 'badge badge-inuse' : 
+                                  'badge badge-maintenance'
+                                }>
+                                  {eq.status}
                                 </span>
-                              )}
-                            </td>
-                            <td style={styles.td}>
-                              {eq.status === 'Em Uso' ? (
-                                <div style={styles.borrowerCell}>
-                                  <strong>{eq.borrowerName}</strong>
-                                </div>
-                              ) : '-'}
-                            </td>
-                            <td style={styles.td}>
-                              {eq.status === 'Em Uso' ? (
-                                <div style={styles.dateCell} title={formatDate(eq.loanDate)}>
-                                  {formatDate(eq.loanDate)}
-                                  {eq.expectedReturnDate && (
-                                    <div style={{fontSize: '0.7rem', color: isOverdue ? '#ef4444' : 'var(--text-muted)'}}>
-                                      Prev: {formatDate(eq.expectedReturnDate)}
-                                    </div>
+                                {isOverdue && (
+                                  <span style={styles.overdueBadge} title="Devolução pendente / atrasada!">
+                                    Atrasado
+                                  </span>
+                                )}
+                              </td>
+                              <td style={styles.td}>
+                                {eq.status === 'Em Uso' ? (
+                                  <div style={styles.borrowerCell}>
+                                    <strong>{eq.borrowerName}</strong>
+                                  </div>
+                                ) : '-'}
+                              </td>
+                              <td style={styles.td}>
+                                {eq.status === 'Em Uso' ? (
+                                  <div style={styles.dateCell} title={formatDate(eq.loanDate)}>
+                                    {formatDate(eq.loanDate)}
+                                    {eq.expectedReturnDate && (
+                                      <div style={{fontSize: '0.7rem', color: isOverdue ? '#ef4444' : 'var(--text-muted)'}}>
+                                        Prev: {formatDate(eq.expectedReturnDate)}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : '-'}
+                              </td>
+                              <td style={{...styles.td, textAlign: 'right'}}>
+                                <div style={styles.actionsWrapper}>
+                                  {eq.status === 'Disponível' && (
+                                    <>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => onLendEquipment(eq)}
+                                        title="Direcionar Equipamento"
+                                        style={styles.actionRowBtn}
+                                      >
+                                        <Send size={15} color="var(--color-primary)" />
+                                        <span style={styles.btnLabelInline}>Direcionar</span>
+                                      </button>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => onUpdateEquipment(eq)}
+                                        title="Editar Cadastro"
+                                      >
+                                        <Edit3 size={15} />
+                                      </button>
+                                      <button 
+                                        className="btn btn-danger btn-icon" 
+                                        onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
+                                        title="Excluir"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {eq.status === 'Em Uso' && (
+                                    <>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => onReturnEquipment(eq.id)}
+                                        title="Registrar Devolução"
+                                        style={styles.actionRowBtnDone}
+                                      >
+                                        <CheckCircle size={15} color="var(--color-success)" />
+                                        <span style={styles.btnLabelInline}>Devolver</span>
+                                      </button>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => onUpdateEquipment(eq)}
+                                        title="Editar Cadastro (Ver detalhes)"
+                                      >
+                                        <Edit3 size={15} />
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {eq.status === 'Em Manutenção' && (
+                                    <>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => {
+                                          onUpdateEquipment({ ...eq, status: 'Disponível' })
+                                        }}
+                                        title="Concluir Manutenção"
+                                        style={styles.actionRowBtn}
+                                      >
+                                        <CheckCircle size={15} color="var(--color-success)" />
+                                        <span style={styles.btnLabelInline}>Liberar</span>
+                                      </button>
+                                      <button 
+                                        className="btn btn-secondary btn-icon" 
+                                        onClick={() => onUpdateEquipment(eq)}
+                                        title="Editar Cadastro"
+                                      >
+                                        <Edit3 size={15} />
+                                      </button>
+                                      <button 
+                                        className="btn btn-danger btn-icon" 
+                                        onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
+                                        title="Excluir"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </>
                                   )}
                                 </div>
-                              ) : '-'}
-                            </td>
-                            <td style={{...styles.td, textAlign: 'right'}}>
-                              <div style={styles.actionsWrapper}>
-                                {eq.status === 'Disponível' && (
-                                  <>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => onLendEquipment(eq)}
-                                      title="Direcionar Equipamento"
-                                      style={styles.actionRowBtn}
-                                    >
-                                      <Send size={15} color="var(--color-primary)" />
-                                      <span style={styles.btnLabelInline}>Direcionar</span>
-                                    </button>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => onUpdateEquipment(eq)}
-                                      title="Editar Cadastro"
-                                    >
-                                      <Edit3 size={15} />
-                                    </button>
-                                    <button 
-                                      className="btn btn-danger btn-icon" 
-                                      onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
-                                      title="Excluir"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </>
-                                )}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                                {eq.status === 'Em Uso' && (
-                                  <>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => onReturnEquipment(eq.id)}
-                                      title="Registrar Devolução"
-                                      style={styles.actionRowBtnDone}
-                                    >
-                                      <CheckCircle size={15} color="var(--color-success)" />
-                                      <span style={styles.btnLabelInline}>Devolver</span>
-                                    </button>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => onUpdateEquipment(eq)}
-                                      title="Editar Cadastro (Ver detalhes)"
-                                    >
-                                      <Edit3 size={15} />
-                                    </button>
-                                  </>
-                                )}
+              {/* Right Column: People Registration */}
+              <div className="glass-panel" style={styles.peopleCard}>
+                <div style={styles.peopleHeader}>
+                  <Users size={20} color="var(--color-primary)" />
+                  <h3 style={styles.peopleTitle}>Cadastro de Pessoas</h3>
+                </div>
+                <p style={styles.peopleDesc}>
+                  Cadastre as pessoas autorizadas a retirar equipamentos.
+                </p>
 
-                                {eq.status === 'Em Manutenção' && (
-                                  <>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => {
-                                        onUpdateEquipment({ ...eq, status: 'Disponível' })
-                                      }}
-                                      title="Concluir Manutenção"
-                                      style={styles.actionRowBtn}
-                                    >
-                                      <CheckCircle size={15} color="var(--color-success)" />
-                                      <span style={styles.btnLabelInline}>Liberar</span>
-                                    </button>
-                                    <button 
-                                      className="btn btn-secondary btn-icon" 
-                                      onClick={() => onUpdateEquipment(eq)}
-                                      title="Editar Cadastro"
-                                    >
-                                      <Edit3 size={15} />
-                                    </button>
-                                    <button 
-                                      className="btn btn-danger btn-icon" 
-                                      onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
-                                      title="Excluir"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
+                <form onSubmit={handleAddPersonSubmit} style={styles.peopleForm}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nome completo..."
+                    value={newPersonName}
+                    onChange={(e) => setNewPersonName(e.target.value)}
+                    required
+                    style={{ padding: '10px 12px', fontSize: '0.9rem', flex: 1 }}
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '10px 14px' }} title="Cadastrar Responsável">
+                    <UserPlus size={16} />
+                  </button>
+                </form>
+
+                <div style={styles.peopleList}>
+                  {people.length === 0 ? (
+                    <div style={styles.peopleEmpty}>Nenhuma pessoa cadastrada.</div>
+                  ) : (
+                    people.map(person => {
+                      const isAssigned = equipment.some(e => e.status === 'Em Uso' && e.borrowerName === person.name)
+                      return (
+                        <div key={person.id} style={styles.personItem}>
+                          <span style={styles.personName} title={person.name}>{person.name}</span>
+                          {isAssigned && (
+                            <span style={styles.personBadge} title="Possui equipamentos em uso">
+                              Em Uso
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-icon"
+                            onClick={() => onDeletePerson(person.id)}
+                            style={styles.personDeleteBtn}
+                            title={`Remover ${person.name}`}
+                          >
+                            <Trash2 size={13} color="#fca5a5" />
+                          </button>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1391,5 +1464,98 @@ const styles = {
     fontSize: '0.85rem',
     marginBottom: '15px',
     textAlign: 'center',
+  },
+  inventoryLayout: {
+    display: 'flex',
+    gap: '20px',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  peopleCard: {
+    flex: '1 1 300px',
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  peopleHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  peopleTitle: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  peopleDesc: {
+    fontSize: '0.8rem',
+    color: 'var(--text-secondary)',
+    lineHeight: '1.4',
+  },
+  peopleForm: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+  },
+  peopleList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    maxHeight: '320px',
+    overflowY: 'auto',
+    marginTop: '8px',
+    paddingRight: '4px',
+  },
+  peopleEmpty: {
+    fontSize: '0.85rem',
+    color: 'var(--text-muted)',
+    textAlign: 'center',
+    padding: '20px',
+    border: '1px dashed rgba(255, 255, 255, 0.05)',
+    borderRadius: '10px',
+  },
+  personItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '8px',
+    transition: 'background 0.2s',
+  },
+  personName: {
+    fontSize: '0.85rem',
+    fontWeight: '500',
+    color: '#ffffff',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flex: 1,
+  },
+  personBadge: {
+    fontSize: '0.7rem',
+    fontWeight: '700',
+    color: 'var(--color-warning)',
+    background: 'var(--color-warning-bg)',
+    border: '1px solid rgba(245, 158, 11, 0.2)',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    textTransform: 'uppercase',
+  },
+  personDeleteBtn: {
+    padding: '4px',
+    borderRadius: '6px',
+    background: 'rgba(239, 68, 68, 0.05)',
+    border: '1px solid rgba(239, 68, 68, 0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   }
 }

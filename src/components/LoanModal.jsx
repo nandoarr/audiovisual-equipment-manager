@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Send } from 'lucide-react'
 
-export default function LoanModal({ isOpen, onClose, onConfirm, equipment }) {
+export default function LoanModal({ isOpen, onClose, onConfirm, equipment, people = [] }) {
   const [borrowerName, setBorrowerName] = useState('')
   const [loanDate, setLoanDate] = useState('')
   const [expectedReturnDate, setExpectedReturnDate] = useState('')
@@ -56,16 +56,27 @@ export default function LoanModal({ isOpen, onClose, onConfirm, equipment }) {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="borrowerName">Nome do Responsável / Usuário *</label>
-            <input
-              type="text"
+            <select
               id="borrowerName"
               className="form-input"
               required
-              placeholder="Ex: Amanda Silva (Diretora de Fotografia)"
               value={borrowerName}
               onChange={(e) => setBorrowerName(e.target.value)}
+              style={styles.select}
               autoFocus
-            />
+            >
+              <option value="" style={styles.option}>Selecione um responsável...</option>
+              {people.map(p => (
+                <option key={p.id} value={p.name} style={styles.option}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {people.length === 0 && (
+              <span style={styles.warningText}>
+                Nenhuma pessoa cadastrada. Cadastre pessoas na aba de Inventário antes de prosseguir.
+              </span>
+            )}
           </div>
 
           <div style={styles.row}>
@@ -159,5 +170,23 @@ const styles = {
     justifyContent: 'flex-end',
     gap: '12px',
     marginTop: '25px',
+  },
+  select: {
+    appearance: 'none',
+    backgroundPosition: 'right 16px center',
+    backgroundRepeat: 'no-repeat',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2523f3f4f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+    backgroundSize: '16px',
+    cursor: 'pointer',
+  },
+  option: {
+    backgroundColor: '#16141f',
+    color: '#f3f4f6',
+  },
+  warningText: {
+    display: 'block',
+    fontSize: '0.8rem',
+    color: '#ef4444',
+    marginTop: '6px',
   }
 }

@@ -59,6 +59,7 @@ export default function Dashboard({
   onLoadMockData,
   onClearAllData,
   onAddPerson,
+  onEditPerson,
   onDeletePerson,
   onQuickStatusChange
 }) {
@@ -93,6 +94,8 @@ export default function Dashboard({
   const [tempUrl, setTempUrl] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
+  const [editingPersonId, setEditingPersonId] = useState(null)
+  const [editingPersonName, setEditingPersonName] = useState('')
 
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -1053,24 +1056,65 @@ export default function Dashboard({
                     ) : (
                       people.map(person => {
                         const isAssigned = equipment.some(e => e.status === 'Em Uso' && e.borrowerName === person.name)
+                        const isEditing = editingPersonId === person.id
                         return (
                           <div key={person.id} style={styles.personItem}>
-                            <span style={styles.personName} title={person.name}>{person.name}</span>
-                            {isAssigned && (
-                              <span style={styles.personBadge} title="Possui equipamentos em uso">
-                                Em Uso
-                              </span>
-                            )}
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-icon"
-                                onClick={() => onDeletePerson(person.id)}
-                                style={styles.personDeleteBtn}
-                                title={`Remover ${person.name}`}
+                            {isEditing ? (
+                              <form
+                                onSubmit={(e) => {
+                                  e.preventDefault()
+                                  onEditPerson(person.id, editingPersonName)
+                                  setEditingPersonId(null)
+                                }}
+                                style={{ display: 'flex', gap: '6px', flex: 1, alignItems: 'center' }}
                               >
-                                <Trash2 size={13} color="#fca5a5" />
-                              </button>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                                  value={editingPersonName}
+                                  onChange={(e) => setEditingPersonName(e.target.value)}
+                                  autoFocus
+                                  required
+                                />
+                                <button type="submit" className="btn btn-secondary btn-icon" style={{ padding: '4px' }} title="Salvar">
+                                  <CheckCircle size={14} color="#10b981" />
+                                </button>
+                                <button type="button" className="btn btn-secondary btn-icon" style={{ padding: '4px' }} onClick={() => setEditingPersonId(null)} title="Cancelar">
+                                  <X size={14} color="#ef4444" />
+                                </button>
+                              </form>
+                            ) : (
+                              <>
+                                <span style={styles.personName} title={person.name}>{person.name}</span>
+                                {isAssigned && (
+                                  <span style={styles.personBadge} title="Possui equipamentos em uso">
+                                    Em Uso
+                                  </span>
+                                )}
+                                {isAdmin && (
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-icon"
+                                      onClick={() => { setEditingPersonId(person.id); setEditingPersonName(person.name); }}
+                                      style={styles.personEditBtn}
+                                      title={`Editar ${person.name}`}
+                                    >
+                                      <Edit3 size={13} color="var(--color-primary-hover)" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-icon"
+                                      onClick={() => onDeletePerson(person.id)}
+                                      style={styles.personDeleteBtn}
+                                      title={`Remover ${person.name}`}
+                                    >
+                                      <Trash2 size={13} color="#fca5a5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         )
@@ -1348,28 +1392,6 @@ export default function Dashboard({
                         />
                       </label>
                     </div>
-                  </div>
-
-                  <hr style={styles.divider} />
-
-                  <div style={styles.backupRow}>
-                    <div>
-                      <h4 style={{...styles.backupActionTitle, color: 'var(--color-primary)'}}>Carregar Dados Fictícios</h4>
-                      <p style={styles.backupActionDesc}>Preenche o sistema com equipamentos de teste e histórico simulado.</p>
-                    </div>
-                    <button className="btn btn-secondary" onClick={() => {if(confirm('Carregar dados simulados irá substituir todo o banco de dados atual. Deseja continuar?')) onLoadMockData()}} style={styles.backupBtn}>
-                      Carregar Demo
-                    </button>
-                  </div>
-
-                  <div style={styles.backupRow}>
-                    <div>
-                      <h4 style={{...styles.backupActionTitle, color: '#f87171'}}>Limpar Banco de Dados</h4>
-                      <p style={styles.backupActionDesc}>Apaga permanentemente todos os equipamentos e histórico.</p>
-                    </div>
-                    <button className="btn btn-danger" onClick={() => {if(confirm('ATENÇÃO: Isso apagará permanentemente todos os seus dados. Deseja prosseguir?')) onClearAllData()}} style={styles.backupBtn}>
-                      <Trash2 size={18} /> Limpar Tudo
-                    </button>
                   </div>
 
                 </div>
@@ -2261,6 +2283,17 @@ const styles = {
     borderRadius: '6px',
     background: 'rgba(239, 68, 68, 0.05)',
     border: '1px solid rgba(239, 68, 68, 0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  personEditBtn: {
+    padding: '4px',
+    borderRadius: '6px',
+    background: 'rgba(168, 85, 247, 0.05)',
+    border: '1px solid rgba(168, 85, 247, 0.1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

@@ -489,6 +489,32 @@ export default function App() {
     updatePeopleList([...people, newPerson])
   }
 
+  const handleEditPerson = (id, newName) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    
+    const person = people.find(p => p.id === id)
+    if (!person) return
+
+    if (person.name === trimmed) return
+
+    if (people.some(p => p.id !== id && p.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('Esta pessoa já está cadastrada com esse nome.')
+      return
+    }
+
+    const oldName = person.name
+
+    const updatedPeople = people.map(p => p.id === id ? { ...p, name: trimmed } : p)
+    updatePeopleList(updatedPeople)
+
+    const updatedEquipment = equipment.map(e => e.borrowerName === oldName ? { ...e, borrowerName: trimmed } : e)
+    updateEquipmentList(updatedEquipment)
+
+    const updatedLogs = logs.map(l => l.borrowerName === oldName ? { ...l, borrowerName: trimmed } : l)
+    updateLogsList(updatedLogs)
+  }
+
   const handleDeletePerson = (id) => {
     const personToDelete = people.find(p => p.id === id)
     if (!personToDelete) return
@@ -614,6 +640,7 @@ export default function App() {
           onLoadMockData={handleLoadMockData}
           onClearAllData={handleClearAllData}
           onAddPerson={handleAddPerson}
+          onEditPerson={handleEditPerson}
           onDeletePerson={handleDeletePerson}
           onQuickStatusChange={handleQuickStatusChange}
         />

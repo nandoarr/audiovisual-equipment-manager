@@ -11,7 +11,7 @@ const CATEGORIES = [
   'Drones',
   'Acessórios Drone',
   'Acessórios Sub',
-  'Acessórios',
+  'Acessórios Câmera',
   'Outros'
 ]
 

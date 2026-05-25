@@ -29,12 +29,8 @@ import {
   X,
   FileText,
   ChevronLeft,
-  ChevronRight,
-  Database,
-  Wifi,
-  WifiOff
+  ChevronRight
 } from 'lucide-react'
-import { getFirebaseConfig, saveFirebaseConfig, deleteFirebaseConfig } from '../firebase'
 
 const CATEGORIES = [
   'Todos',
@@ -68,9 +64,7 @@ export default function Dashboard({
   onAddPerson,
   onEditPerson,
   onDeletePerson,
-  onQuickStatusChange,
-  firebaseActive = false,
-  onUploadLocalData
+  onQuickStatusChange
 }) {
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -106,38 +100,6 @@ export default function Dashboard({
   const [syncError, setSyncError] = useState('')
   const [editingPersonId, setEditingPersonId] = useState(null)
   const [editingPersonName, setEditingPersonName] = useState('')
-
-  // Firebase configuration states
-  const [firebaseConfigText, setFirebaseConfigText] = useState(() => {
-    const config = getFirebaseConfig()
-    return config ? JSON.stringify(config, null, 2) : ''
-  })
-  const [firebaseConfigError, setFirebaseConfigError] = useState('')
-
-  const handleSaveFirebaseConfig = (e) => {
-    e.preventDefault()
-    setFirebaseConfigError('')
-    try {
-      const parsed = JSON.parse(firebaseConfigText)
-      if (!parsed.apiKey || !parsed.projectId) {
-        setFirebaseConfigError('A configuração JSON deve conter pelo menos "apiKey" e "projectId".')
-        return
-      }
-      saveFirebaseConfig(parsed)
-      alert('Configuração do Firebase salva com sucesso! O site será recarregado para ativar a conexão.')
-      window.location.reload()
-    } catch (err) {
-      setFirebaseConfigError('Formato JSON inválido. Certifique-se de copiar exatamente o objeto de configuração do Firebase.')
-    }
-  }
-
-  const handleDisconnectFirebase = () => {
-    if (confirm('Deseja realmente desconectar o Firebase e voltar ao modo de Armazenamento Local?')) {
-      deleteFirebaseConfig()
-      alert('Firebase desconectado! O site será recarregado.')
-      window.location.reload()
-    }
-  }
 
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -1164,104 +1126,7 @@ export default function Dashboard({
                     )}
                   </div>
                 </div>
-
               </div>
-
-              {/* Firebase Database Connection Block */}
-              <div className="glass-panel" style={styles.settingsCard}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <Database size={20} color="var(--color-primary)" />
-                  <h3 style={{...styles.cardTitle, margin: 0}}>Conexão Firebase Firestore</h3>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  {firebaseActive ? (
-                    <>
-                      <Wifi size={18} color="var(--color-success)" />
-                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
-                        Status: <span style={{ color: 'var(--color-success)' }}>Conectado (Nuvem Firestore)</span>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff size={18} color="var(--color-warning)" />
-                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
-                        Status: <span style={{ color: 'var(--color-warning)' }}>Desconectado (Modo LocalStorage Offline)</span>
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <p style={styles.cardDescription}>
-                  Sincronize equipamentos, responsáveis e histórico em nuvem em tempo real com o Firebase Firestore (opção gratuita disponível).
-                </p>
-
-                {isAdmin ? (
-                  <form onSubmit={handleSaveFirebaseConfig} style={{ marginTop: '20px' }}>
-                    <div className="form-group">
-                      <label htmlFor="firebaseConfig">Objeto de Configuração Firebase (JSON)</label>
-                      <textarea
-                        id="firebaseConfig"
-                        className="form-input"
-                        rows={6}
-                        style={{ fontFamily: 'monospace', fontSize: '0.85rem', resize: 'vertical' }}
-                        placeholder='{\n  "apiKey": "AIzaSy...",\n  "authDomain": "peixe-voador.firebaseapp.com",\n  "projectId": "peixe-voador",\n  "storageBucket": "peixe-voador.appspot.com",\n  "messagingSenderId": "...",\n  "appId": "..."\n}'
-                        value={firebaseConfigText}
-                        onChange={(e) => setFirebaseConfigText(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    {firebaseConfigError && (
-                      <div style={{
-                        ...styles.msgBox,
-                        color: '#f87171',
-                        background: 'rgba(248, 113, 113, 0.1)',
-                        border: '1px solid rgba(248, 113, 113, 0.2)'
-                      }}>
-                        {firebaseConfigError}
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '14px' }}>
-                      <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                        Salvar e Conectar
-                      </button>
-                      
-                      {firebaseActive && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-danger"
-                            onClick={handleDisconnectFirebase}
-                            style={{ flex: 1 }}
-                          >
-                            Desconectar Firebase
-                          </button>
-                          
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={onUploadLocalData}
-                            style={{ width: '100%', marginTop: '10px' }}
-                            title="Sobe os dados do LocalStorage para o Firebase para que o banco comece preenchido"
-                          >
-                            Enviar Dados Locais para Nuvem
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </form>
-                ) : (
-                  <div style={{...styles.adminRestrictionNotice, marginTop: '20px'}}>
-                    <Lock size={16} color="var(--text-muted)" style={{ minWidth: '16px' }} />
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Configurações de banco de dados restritas a administradores.
-                    </span>
-                  </div>
-                )}
-              </div>
-
             </div>
           </div>
         )}

@@ -109,6 +109,9 @@ export default function Login({ onLogin, sharedPassword, adminPassword }) {
           <span>Compartilhado entre membros da equipe e técnicos</span>
         </div>
       </div>
+      <footer style={styles.footerGlobal}>
+        <p style={styles.footerTextGlobal}>Todos os direitos reservados - 2026</p>
+      </footer>
     </div>
   )
 }
@@ -116,11 +119,13 @@ export default function Login({ onLogin, sharedPassword, adminPassword }) {
 const styles = {
   container: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
     width: '100%',
     padding: '20px',
+    gap: '24px',
   },
   card: {
     width: '100%',
@@ -246,5 +251,14 @@ const styles = {
     background: 'rgba(89, 143, 191, 0.15)',
     color: '#ffffff',
     border: '1px solid rgba(89, 143, 191, 0.25)',
+  },
+  footerGlobal: {
+    textAlign: 'center',
+    zIndex: 10,
+  },
+  footerTextGlobal: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
   }
 }

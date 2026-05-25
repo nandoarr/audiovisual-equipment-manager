@@ -1697,6 +1697,11 @@ export default function Dashboard({
         </div>
       )}
       </main>
+      
+      {/* Footer */}
+      <footer style={styles.footerGlobal} className="glass-panel">
+        <p style={styles.footerTextGlobal}>Todos os direitos reservados - 2026</p>
+      </footer>
     </div>
   )
 }
@@ -2496,5 +2501,19 @@ const styles = {
     cursor: 'pointer',
     width: '100%',
     height: '100%',
+  },
+  footerGlobal: {
+    padding: '16px 30px',
+    margin: '0 20px 20px 20px',
+    borderRadius: '16px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  footerTextGlobal: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
   }
 }

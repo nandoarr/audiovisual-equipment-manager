@@ -1803,7 +1803,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     width: '100%',
-    maxWidth: '1440px',
+    maxWidth: '100%',
     margin: '0 auto',
   },
   tabContent: {
@@ -2028,7 +2028,7 @@ const styles = {
     background: 'rgba(10, 10, 15, 0.4)',
     color: 'var(--text-secondary)',
     fontWeight: '600',
-    padding: '16px 20px',
+    padding: '14px 16px',
     borderBottom: '1px solid var(--border-color)',
     fontFamily: 'var(--font-heading)',
   },
@@ -2040,7 +2040,7 @@ const styles = {
     backgroundColor: 'rgba(255, 255, 255, 0.01)',
   },
   td: {
-    padding: '16px 20px',
+    padding: '12px 16px',
     verticalAlign: 'middle',
   },
   tdEmpty: {
@@ -2331,8 +2331,8 @@ const styles = {
     paddingRight: '28px',
     fontFamily: 'var(--font-body)',
     width: '100%',
-    minWidth: '160px',
-    maxWidth: '220px',
+    minWidth: '140px',
+    maxWidth: '180px',
     fontWeight: '600',
     transition: 'all 0.2s',
   },

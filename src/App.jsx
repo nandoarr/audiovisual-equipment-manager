@@ -3,6 +3,14 @@ import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import EquipmentModal from './components/EquipmentModal'
 import LoanModal from './components/LoanModal'
+import { getDb, isFirebaseActive } from './firebase'
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot,
+  writeBatch
+} from 'firebase/firestore'
 
 const MOCK_PEOPLE = [
   { id: 'p-1', name: 'Amanda Silva' },
@@ -162,6 +170,7 @@ export default function App() {
   const [equipment, setEquipment] = useState([])
   const [logs, setLogs] = useState([])
   const [people, setPeople] = useState([])
+  const [firebaseActive, setFirebaseActive] = useState(false)
 
   // Modal Controls
   const [isEqModalOpen, setIsEqModalOpen] = useState(false)
@@ -170,8 +179,12 @@ export default function App() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false)
   const [equipmentForLoan, setEquipmentForLoan] = useState(null)
 
-  // 1. Initial Load from LocalStorage
+  // 1. Initial Load and Firebase Realtime Listeners
   useEffect(() => {
+    const db = getDb()
+    const active = isFirebaseActive()
+    setFirebaseActive(active)
+
     // Loaded shared password
     const savedPassword = localStorage.getItem('peixevoador_shared_password')
     if (savedPassword) {
@@ -206,49 +219,164 @@ export default function App() {
       localStorage.setItem('peixevoador_admin_password', 'admin2026')
     }
 
-    // Loaded Equipment
-    const savedEquipment = localStorage.getItem('peixevoador_equipment')
-    const savedLogs = localStorage.getItem('peixevoador_logs')
+    if (active) {
+      // ----------------------------------------------------
+      // FIREBASE SYNC ACTIVE
+      // ----------------------------------------------------
+      
+      // S1. Listen to Equipment
+      const unsubEq = onSnapshot(collection(db, 'equipment'), (snapshot) => {
+        const eqList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        setEquipment(eqList)
+      })
 
-    if (savedEquipment) {
-      setEquipment(JSON.parse(savedEquipment))
-    } else {
-      // First time use, load mock data for demonstration
-      setEquipment(MOCK_EQUIPMENT)
-      localStorage.setItem('peixevoador_equipment', JSON.stringify(MOCK_EQUIPMENT))
-    }
+      // S2. Listen to Logs
+      const unsubLogs = onSnapshot(collection(db, 'logs'), (snapshot) => {
+        const logsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        logsList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        setLogs(logsList)
+      })
 
-    if (savedLogs) {
-      setLogs(JSON.parse(savedLogs))
-    } else {
-      setLogs(MOCK_LOGS)
-      localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
-    }
+      // S3. Listen to People
+      const unsubPeople = onSnapshot(collection(db, 'people'), (snapshot) => {
+        const peopleList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        setPeople(peopleList)
+      })
 
-    // Loaded People
-    const savedPeople = localStorage.getItem('peixevoador_people')
-    if (savedPeople) {
-      setPeople(JSON.parse(savedPeople))
+      // S4. Listen to settings/passwords
+      const unsubSettings = onSnapshot(doc(db, 'settings', 'passwords'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data()
+          if (data.sharedPassword) setSharedPassword(data.sharedPassword)
+          if (data.adminPassword) setAdminPassword(data.adminPassword)
+        } else {
+          setDoc(doc(db, 'settings', 'passwords'), {
+            sharedPassword: 'producao2026',
+            adminPassword: 'admin2026'
+          })
+        }
+      })
+
+      return () => {
+        unsubEq()
+        unsubLogs()
+        unsubPeople()
+        unsubSettings()
+      }
     } else {
-      setPeople(MOCK_PEOPLE)
-      localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+      // ----------------------------------------------------
+      // LOCALSTORAGE SYNC FALLBACK
+      // ----------------------------------------------------
+      const savedEquipment = localStorage.getItem('peixevoador_equipment')
+      const savedLogs = localStorage.getItem('peixevoador_logs')
+      const savedPeople = localStorage.getItem('peixevoador_people')
+
+      if (savedEquipment) {
+        setEquipment(JSON.parse(savedEquipment))
+      } else {
+        setEquipment(MOCK_EQUIPMENT)
+        localStorage.setItem('peixevoador_equipment', JSON.stringify(MOCK_EQUIPMENT))
+      }
+
+      if (savedLogs) {
+        setLogs(JSON.parse(savedLogs))
+      } else {
+        setLogs(MOCK_LOGS)
+        localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
+      }
+
+      if (savedPeople) {
+        setPeople(JSON.parse(savedPeople))
+      } else {
+        setPeople(MOCK_PEOPLE)
+        localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+      }
     }
   }, [])
 
-  // Write database updates to localStorage
-  const updateEquipmentList = (newEquipment) => {
-    setEquipment(newEquipment)
-    localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
+  // Write database updates (differential sync with Firestore or fallback to localStorage)
+  const updateEquipmentList = async (newEquipment) => {
+    if (firebaseActive) {
+      const db = getDb()
+      const deleted = equipment.filter(e => !newEquipment.some(ne => ne.id === e.id))
+      const addedOrModified = newEquipment.filter(ne => {
+        const existing = equipment.find(e => e.id === ne.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(ne)
+      })
+
+      try {
+        const batch = writeBatch(db)
+        deleted.forEach(item => {
+          batch.delete(doc(db, 'equipment', item.id))
+        })
+        addedOrModified.forEach(item => {
+          batch.set(doc(db, 'equipment', item.id), item)
+        })
+        await batch.commit()
+      } catch (e) {
+        console.error("Erro ao sincronizar equipamentos com Firestore:", e)
+      }
+    } else {
+      setEquipment(newEquipment)
+      localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
+    }
   }
 
-  const updateLogsList = (newLogs) => {
-    setLogs(newLogs)
-    localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+  const updateLogsList = async (newLogs) => {
+    if (firebaseActive) {
+      const db = getDb()
+      const deleted = logs.filter(l => !newLogs.some(nl => nl.id === l.id))
+      const addedOrModified = newLogs.filter(nl => {
+        const existing = logs.find(l => l.id === nl.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(nl)
+      })
+
+      try {
+        const batch = writeBatch(db)
+        deleted.forEach(item => {
+          batch.delete(doc(db, 'logs', item.id))
+        })
+        addedOrModified.forEach(item => {
+          batch.set(doc(db, 'logs', item.id), item)
+        })
+        await batch.commit()
+      } catch (e) {
+        console.error("Erro ao sincronizar logs com Firestore:", e)
+      }
+    } else {
+      setLogs(newLogs)
+      localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
+    }
   }
 
-  const updatePeopleList = (newPeople) => {
-    setPeople(newPeople)
-    localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
+  const updatePeopleList = async (newPeople) => {
+    if (firebaseActive) {
+      const db = getDb()
+      const deleted = people.filter(p => !newPeople.some(np => np.id === p.id))
+      const addedOrModified = newPeople.filter(np => {
+        const existing = people.find(p => p.id === np.id)
+        if (!existing) return true
+        return JSON.stringify(existing) !== JSON.stringify(np)
+      })
+
+      try {
+        const batch = writeBatch(db)
+        deleted.forEach(item => {
+          batch.delete(doc(db, 'people', item.id))
+        })
+        addedOrModified.forEach(item => {
+          batch.set(doc(db, 'people', item.id), item)
+        })
+        await batch.commit()
+      } catch (e) {
+        console.error("Erro ao sincronizar responsáveis com Firestore:", e)
+      }
+    } else {
+      setPeople(newPeople)
+      localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
+    }
   }
 
   // 2. Auth Actions
@@ -321,16 +449,92 @@ export default function App() {
       if (currentPass === adminPassword) {
         setAdminPassword(newPass)
         localStorage.setItem('peixevoador_admin_password', newPass)
+        if (firebaseActive) {
+          const db = getDb()
+          setDoc(doc(db, 'settings', 'passwords'), { adminPassword: newPass }, { merge: true })
+        }
         return true
       }
     } else {
       if (currentPass === sharedPassword) {
         setSharedPassword(newPass)
         localStorage.setItem('peixevoador_shared_password', newPass)
+        if (firebaseActive) {
+          const db = getDb()
+          setDoc(doc(db, 'settings', 'passwords'), { sharedPassword: newPass }, { merge: true })
+        }
         return true
       }
     }
     return false
+  }
+
+  // Upload local data to Firebase Firestore
+  const handleUploadLocalDataToFirebase = async () => {
+    const db = getDb()
+    if (!db) {
+      alert('Firebase não está inicializado.')
+      return
+    }
+
+    try {
+      const localEq = equipment
+      const localLogs = logs
+      const localPeople = people
+
+      // Upload equipment in batches
+      let batch = writeBatch(db)
+      let count = 0
+      for (const eq of localEq) {
+        batch.set(doc(db, 'equipment', eq.id), eq)
+        count++
+        if (count === 400) {
+          await batch.commit()
+          batch = writeBatch(db)
+          count = 0
+        }
+      }
+      if (count > 0) await batch.commit()
+
+      // Upload logs in batches
+      batch = writeBatch(db)
+      count = 0
+      for (const log of localLogs) {
+        batch.set(doc(db, 'logs', log.id), log)
+        count++
+        if (count === 400) {
+          await batch.commit()
+          batch = writeBatch(db)
+          count = 0
+        }
+      }
+      if (count > 0) await batch.commit()
+
+      // Upload people in batches
+      batch = writeBatch(db)
+      count = 0
+      for (const person of localPeople) {
+        batch.set(doc(db, 'people', person.id), person)
+        count++
+        if (count === 400) {
+          await batch.commit()
+          batch = writeBatch(db)
+          count = 0
+        }
+      }
+      if (count > 0) await batch.commit()
+
+      // Upload passwords
+      await setDoc(doc(db, 'settings', 'passwords'), {
+        sharedPassword: sharedPassword,
+        adminPassword: adminPassword
+      })
+
+      alert('Todos os dados locais foram enviados e mesclados com sucesso no Firebase!')
+    } catch (e) {
+      console.error(e)
+      alert(`Erro ao subir dados locais: ${e.message}`)
+    }
   }
 
   // 3. Equipment CRUD Actions
@@ -643,6 +847,8 @@ export default function App() {
           onEditPerson={handleEditPerson}
           onDeletePerson={handleDeletePerson}
           onQuickStatusChange={handleQuickStatusChange}
+          firebaseActive={firebaseActive}
+          onUploadLocalData={handleUploadLocalDataToFirebase}
         />
       ) : (
         <Login

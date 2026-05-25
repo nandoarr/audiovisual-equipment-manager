@@ -218,12 +218,22 @@ export default function App() {
       // ----------------------------------------------------
       
       const fetchEquipment = async () => {
-        const { data } = await supabase.from('equipment').select('*')
+        const { data, error } = await supabase.from('equipment').select('*')
+        if (error) {
+          console.error("Erro ao buscar equipamentos:", error)
+          alert(`Erro Supabase (tabela equipment): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase (veja na aba Configurações).`)
+          return
+        }
         if (data) setEquipment(data)
       }
 
       const fetchLogs = async () => {
-        const { data } = await supabase.from('logs').select('*')
+        const { data, error } = await supabase.from('logs').select('*')
+        if (error) {
+          console.error("Erro ao buscar logs:", error)
+          alert(`Erro Supabase (tabela logs): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
+          return
+        }
         if (data) {
           data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           setLogs(data)
@@ -231,20 +241,33 @@ export default function App() {
       }
 
       const fetchPeople = async () => {
-        const { data } = await supabase.from('people').select('*')
+        const { data, error } = await supabase.from('people').select('*')
+        if (error) {
+          console.error("Erro ao buscar pessoas:", error)
+          alert(`Erro Supabase (tabela people): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
+          return
+        }
         if (data) setPeople(data)
       }
 
       const fetchSettings = async () => {
-        const { data } = await supabase.from('settings').select('*').eq('key', 'passwords').single()
+        const { data, error } = await supabase.from('settings').select('*').eq('key', 'passwords').single()
+        if (error && error.code !== 'PGRST116') { // PGRST116 significa "nenhuma linha encontrada", o que é normal se estiver vazio
+          console.error("Erro ao buscar configurações:", error)
+          alert(`Erro Supabase (tabela settings): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
+          return
+        }
         if (data && data.value) {
           if (data.value.sharedPassword) setSharedPassword(data.value.sharedPassword)
           if (data.value.adminPassword) setAdminPassword(data.value.adminPassword)
         } else {
-          await supabase.from('settings').upsert({
+          const { error: upsertError } = await supabase.from('settings').upsert({
             key: 'passwords',
             value: { sharedPassword: 'producao2026', adminPassword: 'admin2026' }
           })
+          if (upsertError) {
+            console.error("Erro ao criar senhas padrão no Supabase:", upsertError)
+          }
         }
       }
 

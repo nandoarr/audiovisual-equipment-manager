@@ -1057,11 +1057,6 @@ export default function Dashboard({
                             ) : (
                               <>
                                 <span style={styles.personName} title={person.name}>{person.name}</span>
-                                {isAssigned && (
-                                  <span style={styles.personBadge} title="Possui equipamentos em uso">
-                                    Em Uso
-                                  </span>
-                                )}
                                 {isAdmin && (
                                   <div style={{ display: 'flex', gap: '4px' }}>
                                     <button

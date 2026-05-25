@@ -9,6 +9,8 @@ const CATEGORIES = [
   'Áudio',
   'Estabilizadores & Tripés',
   'Drones',
+  'Acessórios Drone',
+  'Acessórios Sub',
   'Acessórios',
   'Outros'
 ]

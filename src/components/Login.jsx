@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Lock, Video, Eye, EyeOff, AlertTriangle } from 'lucide-react'
+import { Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react'
+import logo from '../logo.png'
 
 export default function Login({ onLogin, sharedPassword, adminPassword }) {
   const [loginMode, setLoginMode] = useState('user')
@@ -33,11 +34,11 @@ export default function Login({ onLogin, sharedPassword, adminPassword }) {
       
       <div className="glass-panel" style={styles.card}>
         <div style={styles.logoContainer}>
-          <div style={styles.iconCircle}>
-            <Video size={36} color="var(--color-primary)" />
+          <img src={logo} alt="Logo Peixe Voador" style={styles.logoImageLogin} />
+          <div style={styles.brandText}>
+            <h1 style={styles.title}>PEIXE VOADOR</h1>
+            <p style={styles.subtitle}>Controle de Equipamentos</p>
           </div>
-          <h1 style={styles.title}>PEIXE VOADOR</h1>
-          <p style={styles.subtitle}>Controle de Equipamentos</p>
         </div>
 
         <div style={styles.tabContainer}>
@@ -133,20 +134,20 @@ const styles = {
   logoContainer: {
     marginBottom: '32px',
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: '72px',
-    height: '72px',
-    borderRadius: '20px',
-    background: 'rgba(168, 85, 247, 0.1)',
-    border: '1px solid rgba(168, 85, 247, 0.25)',
-    display: 'flex',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '16px',
-    boxShadow: 'inset 0 0 10px rgba(168, 85, 247, 0.15)',
+    gap: '16px',
+  },
+  logoImageLogin: {
+    height: '64px',
+    width: 'auto',
+    objectFit: 'contain',
+  },
+  brandText: {
+    textAlign: 'left',
+    display: 'flex',
+    flexDirection: 'column',
   },
   title: {
     fontFamily: 'var(--font-heading)',

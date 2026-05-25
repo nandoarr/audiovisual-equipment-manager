@@ -180,12 +180,23 @@ export default function App() {
       localStorage.setItem('peixevoador_shared_password', 'producao2026')
     }
 
-    // Checked if session is active
-    const activeSession = sessionStorage.getItem('peixevoador_session_active')
-    if (activeSession === 'true') {
-      setIsLoggedIn(true)
-      const adminSession = sessionStorage.getItem('peixevoador_session_admin')
-      setIsAdmin(adminSession === 'true')
+    // Checked if session is active and not expired
+    const INACTIVITY_TIMEOUT = 30 * 60 * 1000 // 30 minutes in ms
+    const activeSession = localStorage.getItem('peixevoador_session_active')
+    const lastActivity = localStorage.getItem('peixevoador_last_activity')
+    
+    if (activeSession === 'true' && lastActivity) {
+      const diff = Date.now() - parseInt(lastActivity, 10)
+      if (diff <= INACTIVITY_TIMEOUT) {
+        setIsLoggedIn(true)
+        const adminSession = localStorage.getItem('peixevoador_session_admin')
+        setIsAdmin(adminSession === 'true')
+        localStorage.setItem('peixevoador_last_activity', Date.now().toString())
+      } else {
+        localStorage.removeItem('peixevoador_session_active')
+        localStorage.removeItem('peixevoador_session_admin')
+        localStorage.removeItem('peixevoador_last_activity')
+      }
     }
 
     const savedAdminPassword = localStorage.getItem('peixevoador_admin_password')
@@ -244,16 +255,66 @@ export default function App() {
   const handleLogin = (adminRole) => {
     setIsLoggedIn(true)
     setIsAdmin(adminRole)
-    sessionStorage.setItem('peixevoador_session_active', 'true')
-    sessionStorage.setItem('peixevoador_session_admin', adminRole ? 'true' : 'false')
+    localStorage.setItem('peixevoador_session_active', 'true')
+    localStorage.setItem('peixevoador_session_admin', adminRole ? 'true' : 'false')
+    localStorage.setItem('peixevoador_last_activity', Date.now().toString())
   }
 
   const handleLogout = () => {
     setIsLoggedIn(false)
     setIsAdmin(false)
-    sessionStorage.removeItem('peixevoador_session_active')
-    sessionStorage.removeItem('peixevoador_session_admin')
+    localStorage.removeItem('peixevoador_session_active')
+    localStorage.removeItem('peixevoador_session_admin')
+    localStorage.removeItem('peixevoador_last_activity')
   }
+
+  // 2.1 Inactivity Timer & Global Listeners
+  useEffect(() => {
+    if (!isLoggedIn) return
+
+    const INACTIVITY_TIMEOUT = 30 * 60 * 1000 // 30 mins
+
+    const updateActivity = () => {
+      localStorage.setItem('peixevoador_last_activity', Date.now().toString())
+    }
+
+    let lastWrite = 0
+    const handleUserActivity = () => {
+      const now = Date.now()
+      if (now - lastWrite > 2000) { // throttle to once every 2 seconds
+        updateActivity()
+        lastWrite = now
+      }
+    }
+
+    // Set initial activity when logging in
+    updateActivity()
+
+    // Add listeners for activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+    events.forEach(event => {
+      window.addEventListener(event, handleUserActivity)
+    })
+
+    // Periodic check every 15 seconds to auto-logout if inactive while page is open
+    const interval = setInterval(() => {
+      const lastActivity = localStorage.getItem('peixevoador_last_activity')
+      if (lastActivity) {
+        const diff = Date.now() - parseInt(lastActivity, 10)
+        if (diff > INACTIVITY_TIMEOUT) {
+          handleLogout()
+          alert('Sua sessão expirou por inatividade de 30 minutos.')
+        }
+      }
+    }, 15000)
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleUserActivity)
+      })
+      clearInterval(interval)
+    }
+  }, [isLoggedIn])
 
   const handleChangePassword = (currentPass, newPass, isChangingAdmin = false) => {
     if (isChangingAdmin) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import * as XLSX from 'xlsx'
+import logo from '../logo.png'
 import {
   Search,
   Filter,
@@ -330,9 +331,7 @@ export default function Dashboard({
       {/* Header */}
       <header style={styles.header} className="glass-panel">
         <div style={styles.headerBrand}>
-          <div style={styles.logoIcon}>
-            <Video size={24} color="#ffffff" />
-          </div>
+          <img src={logo} alt="Logo Peixe Voador" style={styles.logoImageHeader} />
           <div>
             <h1 style={styles.headerTitle}>PEIXE VOADOR</h1>
             <span style={styles.headerSubtitle}>Controle de Equipamentos</span>
@@ -1070,15 +1069,10 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
   },
-  logoIcon: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '10px',
-    background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 0 10px rgba(168, 85, 247, 0.3)',
+  logoImageHeader: {
+    height: '42px',
+    width: 'auto',
+    objectFit: 'contain',
   },
   headerTitle: {
     fontFamily: 'var(--font-heading)',

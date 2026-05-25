@@ -74,22 +74,25 @@ export default function Dashboard({
   const [jobDate, setJobDate] = useState('')
 
   // Calendar Integration States
-  const [googleConnected, setGoogleConnected] = useState(() => {
-    return localStorage.getItem('peixevoador_google_connected') === 'true'
-  })
-  const [googleEmail, setGoogleEmail] = useState(() => {
-    return localStorage.getItem('peixevoador_google_email') || ''
-  })
   const [icloudConnected, setIcloudConnected] = useState(() => {
     return localStorage.getItem('peixevoador_icloud_connected') === 'true'
   })
   const [icloudEmail, setIcloudEmail] = useState(() => {
     return localStorage.getItem('peixevoador_icloud_email') || ''
   })
+  const [icloudEventsList, setIcloudEventsList] = useState(() => {
+    const saved = localStorage.getItem('peixevoador_icloud_events')
+    return saved ? JSON.parse(saved).map(evt => ({
+      ...evt,
+      startDate: new Date(evt.startDate),
+      endDate: evt.endDate ? new Date(evt.endDate) : null
+    })) : []
+  })
 
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
   const [isIcloudModalOpen, setIsIcloudModalOpen] = useState(false)
-  const [tempEmail, setTempEmail] = useState('')
+  const [tempUrl, setTempUrl] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
 
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -168,33 +171,130 @@ export default function Dashboard({
     }
   }
 
-  const connectGoogle = (email) => {
-    setGoogleConnected(true)
-    setGoogleEmail(email)
-    localStorage.setItem('peixevoador_google_connected', 'true')
-    localStorage.setItem('peixevoador_google_email', email)
+  // --- Real iCal / ICS Parser ---
+  const parseICS = (icsText) => {
+    const lines = icsText.split(/\r?\n/)
+    const parsedEvents = []
+    let currentEvent = null
+    let inEvent = false
+
+    const parseICSDate = (dateStr) => {
+      if (!dateStr) return null
+      const cleanStr = dateStr.split(':').pop().replace(/\s/g, '')
+      
+      const matchDT = cleanStr.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/)
+      if (matchDT) {
+        const [_, y, m, d, hh, mm, ss] = matchDT
+        return new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(hh), parseInt(mm), parseInt(ss)))
+      }
+      
+      const matchD = cleanStr.match(/^(\d{4})(\d{2})(\d{2})$/)
+      if (matchD) {
+        const [_, y, m, d] = matchD
+        return new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+      }
+      
+      return new Date(cleanStr)
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i]
+      while (i + 1 < lines.length && (lines[i + 1].startsWith(' ') || lines[i + 1].startsWith('\t'))) {
+        line += lines[i + 1].substring(1)
+        i++
+      }
+
+      const cleanLine = line.trim()
+      if (cleanLine === 'BEGIN:VEVENT') {
+        currentEvent = {}
+        inEvent = true
+      } else if (cleanLine === 'END:VEVENT') {
+        if (currentEvent && currentEvent.title && currentEvent.startDate) {
+          parsedEvents.push(currentEvent)
+        }
+        inEvent = false
+        currentEvent = null
+      } else if (inEvent && currentEvent) {
+        const colonIdx = cleanLine.indexOf(':')
+        if (colonIdx !== -1) {
+          const keyWithParams = cleanLine.substring(0, colonIdx)
+          const val = cleanLine.substring(colonIdx + 1)
+          const key = keyWithParams.split(';')[0].toUpperCase()
+
+          if (key === 'SUMMARY') {
+            currentEvent.title = val.replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\n/g, '\n')
+          } else if (key === 'DTSTART') {
+            currentEvent.startDate = parseICSDate(cleanLine)
+          } else if (key === 'DTEND') {
+            currentEvent.endDate = parseICSDate(cleanLine)
+          } else if (key === 'DESCRIPTION') {
+            currentEvent.description = val.replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\n/g, '\n')
+          }
+        }
+      }
+    }
+    return parsedEvents
   }
 
-  const disconnectGoogle = () => {
-    setGoogleConnected(false)
-    setGoogleEmail('')
-    localStorage.removeItem('peixevoador_google_connected')
-    localStorage.removeItem('peixevoador_google_email')
-  }
+  // --- iCloud Calendar Fetch & Sincronization ---
+  const syncIcloudCalendar = async (url, silent = false) => {
+    if (!silent) setSyncing(true)
+    setSyncError('')
 
-  const connectIcloud = (email) => {
-    setIcloudConnected(true)
-    setIcloudEmail(email)
-    localStorage.setItem('peixevoador_icloud_connected', 'true')
-    localStorage.setItem('peixevoador_icloud_email', email)
+    try {
+      let httpUrl = url.trim()
+      if (!httpUrl) throw new Error('A URL da agenda não pode estar vazia.')
+      
+      // Convert webcal to https
+      if (httpUrl.startsWith('webcal://')) {
+        httpUrl = 'https://' + httpUrl.substring(9)
+      }
+      
+      // Use AllOrigins CORS Proxy
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(httpUrl)}`
+      const res = await fetch(proxyUrl)
+      if (!res.ok) throw new Error('Não foi possível conectar ao servidor da agenda. Verifique o link e se o calendário está configurado como público.')
+      
+      const text = await res.text()
+      const parsed = parseICS(text)
+      
+      if (parsed.length === 0) {
+        throw new Error('Nenhum evento encontrado. Certifique-se de que o calendário público do iCloud possui compromissos.')
+      }
+
+      // Update state and localStorage
+      setIcloudEventsList(parsed)
+      localStorage.setItem('peixevoador_icloud_events', JSON.stringify(parsed))
+      
+      setIcloudConnected(true)
+      setIcloudEmail(url.trim())
+      localStorage.setItem('peixevoador_icloud_connected', 'true')
+      localStorage.setItem('peixevoador_icloud_email', url.trim())
+    } catch (err) {
+      console.error(err)
+      if (!silent) {
+        setSyncError(err.message || 'Erro ao sincronizar. Verifique a URL do calendário público.')
+      }
+    } finally {
+      if (!silent) setSyncing(false)
+    }
   }
 
   const disconnectIcloud = () => {
     setIcloudConnected(false)
     setIcloudEmail('')
+    setIcloudEventsList([])
     localStorage.removeItem('peixevoador_icloud_connected')
     localStorage.removeItem('peixevoador_icloud_email')
+    localStorage.removeItem('peixevoador_icloud_events')
   }
+
+  // Silent sync on mount if connected
+  React.useEffect(() => {
+    if (icloudConnected && icloudEmail) {
+      syncIcloudCalendar(icloudEmail, true)
+    }
+  }, [])
 
   const formatJobDate = (dateStr) => {
     if (!dateStr) return '-'
@@ -515,41 +615,12 @@ export default function Dashboard({
       color: '#f59e0b'
     }))
 
-  const googleEvents = googleConnected ? [
-    {
-      type: 'google',
-      title: '🎬 Gravação: Clipe Represa',
-      date: new Date(year, month, 10, 9, 0),
-      color: '#3b82f6'
-    },
-    {
-      type: 'google',
-      title: '📅 Reunião: Alinhamento Pré-Prod',
-      date: new Date(year, month, 15, 14, 0),
-      color: '#3b82f6'
-    },
-    {
-      type: 'google',
-      title: '🎥 Gravação: Documentário Estúdio',
-      date: new Date(year, month, 22, 10, 0),
-      color: '#3b82f6'
-    }
-  ] : []
-
-  const icloudEvents = icloudConnected ? [
-    {
-      type: 'icloud',
-      title: '📷 Sessão Fotográfica Externa',
-      date: new Date(year, month, 5, 8, 30),
-      color: '#10b981'
-    },
-    {
-      type: 'icloud',
-      title: '👗 Comercial: Ensaio Figurino',
-      date: new Date(year, month, 18, 16, 0),
-      color: '#10b981'
-    }
-  ] : []
+  const icloudEvents = icloudConnected ? icloudEventsList.map(evt => ({
+    type: 'icloud',
+    title: `🍏 ${evt.title}`,
+    date: evt.startDate,
+    color: '#10b981'
+  })) : []
 
   const jobEvents = jobs.map(j => ({
     type: 'job',
@@ -558,7 +629,7 @@ export default function Dashboard({
     color: '#8b5cf6'
   }))
 
-  const allEvents = [...eqEvents, ...googleEvents, ...icloudEvents, ...jobEvents]
+  const allEvents = [...eqEvents, ...icloudEvents, ...jobEvents]
 
   const getCellEvents = (cellDate) => {
     return allEvents.filter(evt => 
@@ -1524,36 +1595,6 @@ export default function Dashboard({
 
               {/* Sidebar: Connections */}
               <div style={styles.integrationCard}>
-                {/* Google Calendar Card */}
-                <div className="glass-panel" style={styles.integrationCardItem}>
-                  <div style={styles.integrationHeader}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: googleConnected ? 'var(--color-success)' : 'var(--text-muted)' }}></div>
-                    <h3 style={styles.integrationTitle}>Google Calendar</h3>
-                    <span style={{
-                      ...styles.integrationStatus,
-                      background: googleConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
-                      color: googleConnected ? 'var(--color-success)' : 'var(--text-secondary)'
-                    }}>
-                      {googleConnected ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    {googleConnected 
-                      ? `Conectado à conta: ${googleEmail}`
-                      : 'Vincule sua Google Agenda para visualizar e sincronizar datas de produções e gravações automaticamente.'
-                    }
-                  </p>
-                  {googleConnected ? (
-                    <button className="btn btn-danger btn-icon" style={styles.connectionBtn} onClick={disconnectGoogle}>
-                      Desconectar
-                    </button>
-                  ) : (
-                    <button className="btn btn-primary" style={styles.connectionBtn} onClick={() => { setTempEmail(''); setIsGoogleModalOpen(true); }}>
-                      Conectar Conta
-                    </button>
-                  )}
-                </div>
-
                 {/* iCloud Calendar Card */}
                 <div className="glass-panel" style={styles.integrationCardItem}>
                   <div style={styles.integrationHeader}>
@@ -1569,16 +1610,21 @@ export default function Dashboard({
                   </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                     {icloudConnected 
-                      ? `Conectado à conta: ${icloudEmail}`
+                      ? `URL Sincronizada: ${icloudEmail.length > 30 ? icloudEmail.substring(0, 30) + '...' : icloudEmail}`
                       : 'Vincule sua agenda do iCloud para sincronizar compromissos de locações e entregas do ecossistema Apple.'
                     }
                   </p>
                   {icloudConnected ? (
-                    <button className="btn btn-danger btn-icon" style={styles.connectionBtn} onClick={disconnectIcloud}>
-                      Desconectar
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <button className="btn btn-secondary" style={styles.connectionBtn} onClick={() => syncIcloudCalendar(icloudEmail)} disabled={syncing}>
+                        {syncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+                      </button>
+                      <button className="btn btn-danger" style={styles.connectionBtn} onClick={disconnectIcloud}>
+                        Desconectar
+                      </button>
+                    </div>
                   ) : (
-                    <button className="btn btn-primary" style={styles.connectionBtn} onClick={() => { setTempEmail(''); setIsIcloudModalOpen(true); }}>
+                    <button className="btn btn-primary" style={styles.connectionBtn} onClick={() => { setTempUrl(''); setIsIcloudModalOpen(true); }}>
                       Conectar iCloud
                     </button>
                   )}
@@ -1588,81 +1634,63 @@ export default function Dashboard({
           </div>
         )}
 
-      {/* Google Calendar Connection Modal */}
-      {isGoogleModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsGoogleModalOpen(false)}>
-          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <button className="modal-close" onClick={() => setIsGoogleModalOpen(false)}>
-              <X size={24} />
-            </button>
-            <h2 className="modal-title">Conectar Google Agenda</h2>
-            <form onSubmit={(e) => {
-              e.preventDefault()
-              if (tempEmail.trim()) {
-                connectGoogle(tempEmail.trim())
-                setIsGoogleModalOpen(false)
-                setTempEmail('')
-              }
-            }}>
-              <div className="form-group">
-                <label htmlFor="google-email">E-mail da Conta Google</label>
-                <input
-                  type="email"
-                  id="google-email"
-                  className="form-input"
-                  required
-                  placeholder="exemplo@gmail.com"
-                  value={tempEmail}
-                  onChange={(e) => setTempEmail(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setIsGoogleModalOpen(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Sincronizar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* iCloud Connection Modal */}
       {isIcloudModalOpen && (
         <div className="modal-overlay" onClick={() => setIsIcloudModalOpen(false)}>
-          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <button className="modal-close" onClick={() => setIsIcloudModalOpen(false)}>
+          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <button className="modal-close" onClick={() => setIsIcloudModalOpen(false)} disabled={syncing}>
               <X size={24} />
             </button>
-            <h2 className="modal-title">Conectar Agenda iCloud</h2>
-            <form onSubmit={(e) => {
+            <h2 className="modal-title">Conectar Agenda iCloud (Apple)</h2>
+            
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#ffffff' }}>Como obter o link de assinatura do iCloud:</p>
+              <ol style={{ paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li>No app <strong>Calendário</strong> (iPhone, iPad ou Mac), clique no ícone de compartilhamento ao lado do calendário desejado.</li>
+                <li>Ative a opção <strong>"Calendário Público"</strong>.</li>
+                <li>Clique em <strong>"Compartilhar Link"</strong> e copie a URL gerada (ela começa com <code>webcal://</code>).</li>
+                <li>Cole o link no campo abaixo para sincronizar.</li>
+              </ol>
+            </div>
+
+            <form onSubmit={async (e) => {
               e.preventDefault()
-              if (tempEmail.trim()) {
-                connectIcloud(tempEmail.trim())
-                setIsIcloudModalOpen(false)
-                setTempEmail('')
+              if (tempUrl.trim()) {
+                await syncIcloudCalendar(tempUrl.trim())
               }
             }}>
               <div className="form-group">
-                <label htmlFor="icloud-email">E-mail ou ID Apple iCloud</label>
+                <label htmlFor="icloud-url">Link do Calendário Público (webcal://...)</label>
                 <input
-                  type="email"
-                  id="icloud-email"
+                  type="text"
+                  id="icloud-url"
                   className="form-input"
                   required
-                  placeholder="exemplo@icloud.com"
-                  value={tempEmail}
-                  onChange={(e) => setTempEmail(e.target.value)}
+                  placeholder="webcal://pXX-calws.icloud.com/published/2/..."
+                  value={tempUrl}
+                  onChange={(e) => setTempUrl(e.target.value)}
+                  disabled={syncing}
                 />
               </div>
+
+              {syncError && (
+                <div style={{
+                  ...styles.msgBox,
+                  color: '#f87171',
+                  background: 'rgba(248, 113, 113, 0.1)',
+                  border: '1px solid rgba(248, 113, 113, 0.2)',
+                  marginTop: '10px'
+                }}>
+                  {syncError}
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setIsIcloudModalOpen(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsIcloudModalOpen(false)} disabled={syncing}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Sincronizar
+                <button type="submit" className="btn btn-primary" disabled={syncing}>
+                  {syncing ? 'Sincronizando...' : 'Sincronizar'}
                 </button>
               </div>
             </form>

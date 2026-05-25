@@ -547,8 +547,45 @@ export default function Dashboard({
           notes: row['Observações'] || ''
         }));
         
-        onImportData(parsedEquipment, parsedLogs);
-        alert('Planilha importada e carregada com sucesso!');
+        // Merge/sum with current equipment
+        const mergedEquipment = [...equipment];
+        parsedEquipment.forEach(parsedItem => {
+          const existingIndex = mergedEquipment.findIndex(e => 
+            e.id === parsedItem.id || 
+            (parsedItem.serialNumber && 
+             parsedItem.serialNumber !== '-' && 
+             e.serialNumber && 
+             e.serialNumber.trim().toLowerCase() === parsedItem.serialNumber.trim().toLowerCase())
+          );
+          if (existingIndex > -1) {
+            // Overwrite/update existing item with new imported values
+            mergedEquipment[existingIndex] = {
+              ...mergedEquipment[existingIndex],
+              ...parsedItem
+            };
+          } else {
+            // Add as new item
+            mergedEquipment.push(parsedItem);
+          }
+        });
+
+        // Merge/sum with current logs
+        const mergedLogs = [...logs];
+        parsedLogs.forEach(parsedLog => {
+          const exists = logs.some(l => 
+            l.id === parsedLog.id || 
+            (l.timestamp === parsedLog.timestamp && 
+             l.equipmentName === parsedLog.equipmentName && 
+             l.borrowerName === parsedLog.borrowerName && 
+             l.action === parsedLog.action)
+          );
+          if (!exists) {
+            mergedLogs.push(parsedLog);
+          }
+        });
+
+        onImportData(mergedEquipment, mergedLogs);
+        alert('Planilha importada e somada com sucesso!');
       } catch (err) {
         console.error(err);
         alert('Erro ao ler a planilha Excel. Verifique se o arquivo segue o formato de exportação padrão.');
@@ -1327,7 +1364,7 @@ export default function Dashboard({
                   <div style={styles.backupRow}>
                     <div>
                       <h4 style={styles.backupActionTitle}>Importar Relatório Excel</h4>
-                      <p style={styles.backupActionDesc}>Substitua os dados atuais por uma planilha do Excel (.xlsx).</p>
+                      <p style={styles.backupActionDesc}>Adicione os dados de uma planilha do Excel (.xlsx) às informações atuais.</p>
                     </div>
                     <label className="btn btn-secondary" style={{...styles.backupBtn, cursor: 'pointer'}}>
                       <FileUp size={18} /> Importar Excel

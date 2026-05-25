@@ -515,6 +515,21 @@ export default function App() {
     updateLogsList(newLogs)
   }
 
+  const handleSaveBatchEquipment = (newEqs) => {
+    const formatted = newEqs.map((eq, index) => ({
+      id: `eq-${Date.now()}-${Math.random()}-${index}`,
+      name: eq.name.trim(),
+      category: eq.category || 'Outros',
+      serialNumber: eq.serialNumber ? String(eq.serialNumber).trim() : '',
+      description: eq.description ? String(eq.description).trim() : '',
+      status: 'Disponível',
+      borrowerName: null,
+      loanDate: null,
+      expectedReturnDate: null
+    }))
+    updateEquipmentList([...equipment, ...formatted])
+  }
+
   return (
     <>
       {/* Background Ambience */}
@@ -554,6 +569,7 @@ export default function App() {
         isOpen={isEqModalOpen}
         onClose={() => setIsEqModalOpen(false)}
         onSave={handleSaveEquipment}
+        onSaveBatch={handleSaveBatchEquipment}
         equipmentToEdit={equipmentToEdit}
       />
 

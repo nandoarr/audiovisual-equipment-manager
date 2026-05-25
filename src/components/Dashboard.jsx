@@ -874,65 +874,77 @@ export default function Dashboard({
             <div style={styles.settingsGrid}>
               
               {/* Change Password Block */}
-              <div className="glass-panel" style={styles.settingsCard}>
-                <h3 style={styles.cardTitle}>Senha do Painel Compartilhado</h3>
-                <p style={styles.cardDescription}>
-                  A senha é única e compartilhada com todos os usuários dos equipamentos. A alteração afeta o próximo login.
-                </p>
+              {isAdmin ? (
+                <div className="glass-panel" style={styles.settingsCard}>
+                  <h3 style={styles.cardTitle}>Senha do Painel Compartilhado</h3>
+                  <p style={styles.cardDescription}>
+                    A senha é única e compartilhada com todos os usuários dos equipamentos. A alteração afeta o próximo login.
+                  </p>
 
-                <form onSubmit={handlePasswordChange} style={{marginTop: '20px'}}>
-                  <div className="form-group">
-                    <label htmlFor="currentPass">Senha Atual</label>
-                    <input
-                      type="password"
-                      id="currentPass"
-                      className="form-input"
-                      required
-                      value={passwordForm.current}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, current: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="newPass">Nova Senha Compartilhada</label>
-                    <input
-                      type="password"
-                      id="newPass"
-                      className="form-input"
-                      required
-                      value={passwordForm.newPass}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, newPass: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="confirmPass">Confirmar Nova Senha</label>
-                    <input
-                      type="password"
-                      id="confirmPass"
-                      className="form-input"
-                      required
-                      value={passwordForm.confirm}
-                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
-                    />
-                  </div>
-
-                  {passwordMsg.text && (
-                    <div style={{
-                      ...styles.msgBox,
-                      color: passwordMsg.type === 'success' ? '#34d399' : '#f87171',
-                      background: passwordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
-                      border: `1px solid ${passwordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(248, 113, 113, 0.2)'}`
-                    }}>
-                      {passwordMsg.text}
+                  <form onSubmit={handlePasswordChange} style={{marginTop: '20px'}}>
+                    <div className="form-group">
+                      <label htmlFor="currentPass">Senha Atual</label>
+                      <input
+                        type="password"
+                        id="currentPass"
+                        className="form-input"
+                        required
+                        value={passwordForm.current}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, current: e.target.value }))}
+                      />
                     </div>
-                  )}
 
-                  <button type="submit" className="btn btn-primary" style={{marginTop: '10px'}}>
-                    Atualizar Senha
-                  </button>
-                </form>
-              </div>
+                    <div className="form-group">
+                      <label htmlFor="newPass">Nova Senha Compartilhada</label>
+                      <input
+                        type="password"
+                        id="newPass"
+                        className="form-input"
+                        required
+                        value={passwordForm.newPass}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, newPass: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="confirmPass">Confirmar Nova Senha</label>
+                      <input
+                        type="password"
+                        id="confirmPass"
+                        className="form-input"
+                        required
+                        value={passwordForm.confirm}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
+                      />
+                    </div>
+
+                    {passwordMsg.text && (
+                      <div style={{
+                        ...styles.msgBox,
+                        color: passwordMsg.type === 'success' ? '#34d399' : '#f87171',
+                        background: passwordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                        border: `1px solid ${passwordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(248, 113, 113, 0.2)'}`
+                      }}>
+                        {passwordMsg.text}
+                      </div>
+                    )}
+
+                    <button type="submit" className="btn btn-primary" style={{marginTop: '10px'}}>
+                      Atualizar Senha
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="glass-panel" style={styles.settingsCard}>
+                  <h3 style={styles.cardTitle}>Alteração de Senha</h3>
+                  <div style={styles.adminRestrictionNotice}>
+                    <Lock size={16} color="var(--text-muted)" style={{ minWidth: '16px' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      A alteração das senhas de acesso é restrita ao administrador.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Change Admin Password Block (Admin Only) */}
               {isAdmin && (

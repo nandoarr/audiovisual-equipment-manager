@@ -54,7 +54,8 @@ export default function Dashboard({
   onLoadMockData,
   onClearAllData,
   onAddPerson,
-  onDeletePerson
+  onDeletePerson,
+  onQuickStatusChange
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   
@@ -525,16 +526,15 @@ export default function Dashboard({
                         <th style={styles.th}>Equipamento</th>
                         <th style={styles.th}>Categoria</th>
                         <th style={styles.th}>Identificador / Série</th>
-                        <th style={styles.th}>Status</th>
                         <th style={styles.th}>Com quem está?</th>
                         <th style={styles.th}>Desde</th>
-                        <th style={{...styles.th, textAlign: 'right'}}>Ações</th>
+                        {isAdmin && <th style={{...styles.th, textAlign: 'right'}}>Ações</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredEquipment.length === 0 ? (
                         <tr>
-                          <td colSpan="7" style={styles.tdEmpty}>
+                          <td colSpan={isAdmin ? 6 : 5} style={styles.tdEmpty}>
                             Nenhum equipamento encontrado com os filtros aplicados.
                           </td>
                         </tr>
@@ -544,7 +544,21 @@ export default function Dashboard({
                           return (
                             <tr key={eq.id} style={styles.tr}>
                               <td style={styles.td}>
-                                <div style={styles.eqCellName}>{eq.name}</div>
+                                <div style={styles.eqCellHeader}>
+                                  <span style={styles.eqCellName}>{eq.name}</span>
+                                  <span className={
+                                    eq.status === 'Disponível' ? 'badge badge-available' : 
+                                    eq.status === 'Em Uso' ? 'badge badge-inuse' : 
+                                    'badge badge-maintenance'
+                                  } style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                                    {eq.status}
+                                  </span>
+                                  {isOverdue && (
+                                    <span style={styles.overdueBadge} title="Devolução pendente / atrasada!">
+                                      Atrasado
+                                    </span>
+                                  )}
+                                </div>
                                 {eq.description && (
                                   <div style={styles.eqCellDesc}>{eq.description}</div>
                                 )}
@@ -556,25 +570,33 @@ export default function Dashboard({
                                 <span style={styles.serialLabel}>{eq.serialNumber || '-'}</span>
                               </td>
                               <td style={styles.td}>
-                                <span className={
-                                  eq.status === 'Disponível' ? 'badge badge-available' : 
-                                  eq.status === 'Em Uso' ? 'badge badge-inuse' : 
-                                  'badge badge-maintenance'
-                                }>
-                                  {eq.status}
-                                </span>
-                                {isOverdue && (
-                                  <span style={styles.overdueBadge} title="Devolução pendente / atrasada!">
-                                    Atrasado
-                                  </span>
-                                )}
-                              </td>
-                              <td style={styles.td}>
-                                {eq.status === 'Em Uso' ? (
-                                  <div style={styles.borrowerCell}>
-                                    <strong>{eq.borrowerName}</strong>
-                                  </div>
-                                ) : '-'}
+                                <select
+                                  value={eq.status === 'Em Uso' ? eq.borrowerName : (eq.status === 'Em Manutenção' ? 'manutencao' : '')}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    if (val === 'manutencao') {
+                                      onQuickStatusChange(eq.id, 'Em Manutenção')
+                                    } else if (val === '') {
+                                      onQuickStatusChange(eq.id, 'Disponível')
+                                    } else {
+                                      onQuickStatusChange(eq.id, 'Em Uso', val)
+                                    }
+                                  }}
+                                  style={{
+                                    ...styles.selectInline,
+                                    color: eq.status === 'Em Uso' ? 'var(--color-warning)' : (eq.status === 'Em Manutenção' ? '#fca5a5' : 'var(--color-success)'),
+                                    borderColor: eq.status === 'Em Uso' ? 'rgba(245, 158, 11, 0.25)' : (eq.status === 'Em Manutenção' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(110, 185, 133, 0.25)')
+                                  }}
+                                  disabled={eq.status === 'Em Manutenção' && !isAdmin}
+                                >
+                                  <option value="" style={styles.option}>🟢 Disponível</option>
+                                  {people.map(p => (
+                                    <option key={p.id} value={p.name} style={styles.option}>
+                                      👤 {p.name}
+                                    </option>
+                                  ))}
+                                  <option value="manutencao" style={styles.option}>🔧 Em Manutenção</option>
+                                </select>
                               </td>
                               <td style={styles.td}>
                                 {eq.status === 'Em Uso' ? (
@@ -588,88 +610,26 @@ export default function Dashboard({
                                   </div>
                                 ) : '-'}
                               </td>
-                              <td style={{...styles.td, textAlign: 'right'}}>
-                                <div style={styles.actionsWrapper}>
-                                  {eq.status === 'Disponível' && (
-                                    <>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => onLendEquipment(eq)}
-                                        title="Direcionar Equipamento"
-                                        style={styles.actionRowBtn}
-                                      >
-                                        <Send size={15} color="var(--color-primary)" />
-                                        <span style={styles.btnLabelInline}>Direcionar</span>
-                                      </button>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => onUpdateEquipment(eq)}
-                                        title="Editar Cadastro"
-                                      >
-                                        <Edit3 size={15} />
-                                      </button>
-                                      <button 
-                                        className="btn btn-danger btn-icon" 
-                                        onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
-                                        title="Excluir"
-                                      >
-                                        <Trash2 size={15} />
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {eq.status === 'Em Uso' && (
-                                    <>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => onReturnEquipment(eq.id)}
-                                        title="Registrar Devolução"
-                                        style={styles.actionRowBtnDone}
-                                      >
-                                        <CheckCircle size={15} color="var(--color-success)" />
-                                        <span style={styles.btnLabelInline}>Devolver</span>
-                                      </button>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => onUpdateEquipment(eq)}
-                                        title="Editar Cadastro (Ver detalhes)"
-                                      >
-                                        <Edit3 size={15} />
-                                      </button>
-                                    </>
-                                  )}
-
-                                  {eq.status === 'Em Manutenção' && (
-                                    <>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => {
-                                          onUpdateEquipment({ ...eq, status: 'Disponível' })
-                                        }}
-                                        title="Concluir Manutenção"
-                                        style={styles.actionRowBtn}
-                                      >
-                                        <CheckCircle size={15} color="var(--color-success)" />
-                                        <span style={styles.btnLabelInline}>Liberar</span>
-                                      </button>
-                                      <button 
-                                        className="btn btn-secondary btn-icon" 
-                                        onClick={() => onUpdateEquipment(eq)}
-                                        title="Editar Cadastro"
-                                      >
-                                        <Edit3 size={15} />
-                                      </button>
-                                      <button 
-                                        className="btn btn-danger btn-icon" 
-                                        onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
-                                        title="Excluir"
-                                      >
-                                        <Trash2 size={15} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
+                              {isAdmin && (
+                                <td style={{...styles.td, textAlign: 'right'}}>
+                                  <div style={styles.actionsWrapper}>
+                                    <button 
+                                      className="btn btn-secondary btn-icon" 
+                                      onClick={() => onUpdateEquipment(eq)}
+                                      title="Editar Cadastro"
+                                    >
+                                      <Edit3 size={15} />
+                                    </button>
+                                    <button 
+                                      className="btn btn-danger btn-icon" 
+                                      onClick={() => { if(confirm(`Deseja excluir ${eq.name}?`)) onDeleteEquipment(eq.id) }}
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           )
                         })
@@ -1687,6 +1647,33 @@ const styles = {
     border: '1px dashed rgba(255, 255, 255, 0.08)',
     borderRadius: '10px',
     padding: '12px 14px',
+    marginBottom: '4px',
+  },
+  selectInline: {
+    background: 'rgba(22, 20, 31, 0.5)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    appearance: 'none',
+    backgroundPosition: 'right 10px center',
+    backgroundRepeat: 'no-repeat',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%25239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+    backgroundSize: '12px',
+    paddingRight: '28px',
+    fontFamily: 'var(--font-body)',
+    width: '100%',
+    minWidth: '160px',
+    maxWidth: '220px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+  },
+  eqCellHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '8px',
     marginBottom: '4px',
   }
 }

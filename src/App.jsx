@@ -460,6 +460,61 @@ export default function App() {
     updatePeopleList([])
   }
 
+  const handleQuickStatusChange = (id, newStatus, borrowerName = null) => {
+    const targetEq = equipment.find(e => e.id === id)
+    if (!targetEq) return
+
+    let updatedEquipment = [...equipment]
+    let newLogs = [...logs]
+
+    // If it was Em Uso and we are changing the status or borrower, log a return
+    if (targetEq.status === 'Em Uso' && (newStatus !== 'Em Uso' || targetEq.borrowerName !== borrowerName)) {
+      const returnLog = {
+        id: `log-${Date.now()}-ret`,
+        timestamp: new Date().toISOString(),
+        equipmentId: id,
+        equipmentName: targetEq.name,
+        serialNumber: targetEq.serialNumber,
+        action: 'devolucao',
+        borrowerName: targetEq.borrowerName || 'Sistema',
+        notes: newStatus === 'Em Manutenção' ? 'Retornado para manutenção.' : 'Devolução registrada via alteração rápida.'
+      }
+      newLogs.push(returnLog)
+    }
+
+    // If the new status is Em Uso, log a withdrawal
+    if (newStatus === 'Em Uso') {
+      const checkoutLog = {
+        id: `log-${Date.now()}-out`,
+        timestamp: new Date().toISOString(),
+        equipmentId: id,
+        equipmentName: targetEq.name,
+        serialNumber: targetEq.serialNumber,
+        action: 'retirada',
+        borrowerName: borrowerName,
+        notes: 'Direcionado via seleção rápida no inventário.'
+      }
+      newLogs.push(checkoutLog)
+    }
+
+    updatedEquipment = equipment.map(e => {
+      if (e.id === id) {
+        return {
+          ...e,
+          status: newStatus,
+          borrowerName: newStatus === 'Em Uso' ? borrowerName : null,
+          loanDate: newStatus === 'Em Uso' ? new Date().toISOString() : null,
+          expectedReturnDate: null,
+          notes: newStatus === 'Em Uso' ? 'Direcionado via seleção rápida no inventário.' : (newStatus === 'Em Manutenção' ? 'Enviado para manutenção.' : null)
+        }
+      }
+      return e
+    })
+
+    updateEquipmentList(updatedEquipment)
+    updateLogsList(newLogs)
+  }
+
   return (
     <>
       {/* Background Ambience */}
@@ -484,6 +539,7 @@ export default function App() {
           onClearAllData={handleClearAllData}
           onAddPerson={handleAddPerson}
           onDeletePerson={handleDeletePerson}
+          onQuickStatusChange={handleQuickStatusChange}
         />
       ) : (
         <Login

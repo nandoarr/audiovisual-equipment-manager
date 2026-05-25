@@ -380,12 +380,6 @@ export default function Dashboard({
   const availableCount = equipment.filter(e => e.status === 'Disponível').length
   const maintenanceCount = equipment.filter(e => e.status === 'Em Manutenção').length
   
-  // Overdue count (where expectedReturnDate is in the past)
-  const overdueCount = equipment.filter(e => {
-    if (e.status !== 'Em Uso' || !e.expectedReturnDate) return false
-    return new Date(e.expectedReturnDate) < new Date()
-  }).length
-
   // Filtered equipment list
   const filteredEquipment = equipment.filter(e => {
     const matchesSearch = 
@@ -395,14 +389,7 @@ export default function Dashboard({
       
     const matchesCategory = categoryFilter === 'Todos' || e.category === categoryFilter
     
-    let matchesStatus = true
-    if (statusFilter !== 'Todos') {
-      if (statusFilter === 'Em Atraso') {
-        matchesStatus = e.status === 'Em Uso' && e.expectedReturnDate && new Date(e.expectedReturnDate) < new Date()
-      } else {
-        matchesStatus = e.status === statusFilter
-      }
-    }
+    const matchesStatus = statusFilter === 'Todos' || e.status === statusFilter
     
     return matchesSearch && matchesCategory && matchesStatus
   })
@@ -784,16 +771,14 @@ export default function Dashboard({
 
               <div className="glass-panel" style={styles.statCard}>
                 <div style={styles.statHeader}>
-                  <span style={styles.statTitle}>Em Atraso / Manutenção</span>
-                  <div style={{...styles.statIconCircle, background: 'rgba(239, 68, 68, 0.1)'}}>
-                    <Clock size={20} color="var(--color-danger)" />
+                  <span style={styles.statTitle}>Em Manutenção</span>
+                  <div style={{...styles.statIconCircle, background: 'rgba(239, 68, 68, 0.05)'}}>
+                    <Sliders size={20} color="var(--color-danger)" />
                   </div>
                 </div>
-                <div style={{...styles.statValue, color: 'var(--color-danger)'}}>
-                  {overdueCount + maintenanceCount}
-                </div>
+                <div style={{...styles.statValue, color: 'var(--color-danger)'}}>{maintenanceCount}</div>
                 <div style={styles.statDesc}>
-                  {overdueCount} atrasado(s) • {maintenanceCount} em reparo
+                  Equipamentos em reparo
                 </div>
               </div>
             </div>
@@ -865,7 +850,6 @@ export default function Dashboard({
                     <option value="Todos">Todos os Status</option>
                     <option value="Disponível">Disponíveis</option>
                     <option value="Em Uso">Em Uso</option>
-                    <option value="Em Atraso">Atrasados</option>
                     <option value="Em Manutenção">Em Manutenção</option>
                   </select>
                 </div>
@@ -906,7 +890,6 @@ export default function Dashboard({
                         </tr>
                       ) : (
                         filteredEquipment.map(eq => {
-                          const isOverdue = eq.status === 'Em Uso' && eq.expectedReturnDate && new Date(eq.expectedReturnDate) < new Date()
                           return (
                             <tr key={eq.id} style={styles.tr}>
                               <td style={styles.td}>
@@ -919,11 +902,6 @@ export default function Dashboard({
                                   } style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
                                     {eq.status}
                                   </span>
-                                  {isOverdue && (
-                                    <span style={styles.overdueBadge} title="Devolução pendente / atrasada!">
-                                      Atrasado
-                                    </span>
-                                  )}
                                 </div>
                                 {eq.description && (
                                   <div style={styles.eqCellDesc}>{eq.description}</div>
@@ -969,7 +947,7 @@ export default function Dashboard({
                                   <div style={styles.dateCell} title={formatDate(eq.loanDate)}>
                                     {formatDate(eq.loanDate)}
                                     {eq.expectedReturnDate && (
-                                      <div style={{fontSize: '0.7rem', color: isOverdue ? '#ef4444' : 'var(--text-muted)'}}>
+                                      <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>
                                         Prev: {formatDate(eq.expectedReturnDate)}
                                       </div>
                                     )}
@@ -1007,39 +985,6 @@ export default function Dashboard({
 
               {/* Right Column: Actions & People */}
               <div style={styles.rightColumnLayout}>
-                {/* Card 1: Ações Rápidas */}
-                <div className="glass-panel" style={styles.peopleCard}>
-                  <div style={styles.peopleHeader}>
-                    <Sliders size={20} color="var(--color-primary)" />
-                    <h3 style={styles.peopleTitle}>Ações Rápidas</h3>
-                  </div>
-                  <div style={styles.actionButtonsContainer}>
-                    {isAdmin && (
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={() => { setSelectedEquipment(null); onAddEquipment(); }}
-                        style={styles.rightActionBtn}
-                      >
-                        <Plus size={18} /> Novo Equipamento
-                      </button>
-                    )}
-                    <button 
-                      className="btn btn-secondary" 
-                      onClick={() => setStatusFilter('Disponível')}
-                      style={styles.rightActionBtn}
-                    >
-                      <Send size={16} /> Filtrar Disponíveis
-                    </button>
-                    <button 
-                      className="btn btn-secondary" 
-                      onClick={() => setStatusFilter('Em Uso')}
-                      style={styles.rightActionBtn}
-                    >
-                      <RefreshCw size={16} /> Filtrar Em Uso
-                    </button>
-                  </div>
-                </div>
-
                 {/* Card 2: Cadastro de Pessoas */}
                 <div className="glass-panel" style={styles.peopleCard}>
                   <div style={styles.peopleHeader}>

@@ -134,10 +134,9 @@ const styles = {
   logoContainer: {
     marginBottom: '32px',
     display: 'flex',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '16px',
+    gap: '12px',
   },
   logoImageLogin: {
     height: '64px',
@@ -145,9 +144,10 @@ const styles = {
     objectFit: 'contain',
   },
   brandText: {
-    textAlign: 'left',
+    textAlign: 'center',
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'center',
   },
   title: {
     fontFamily: 'var(--font-heading)',
@@ -156,7 +156,7 @@ const styles = {
     letterSpacing: '0.1em',
     color: '#ffffff',
     margin: 0,
-    background: 'linear-gradient(135deg, #ffffff, #c084fc)',
+    background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
   },

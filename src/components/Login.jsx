@@ -1,18 +1,28 @@
 import React, { useState } from 'react'
 import { Lock, Video, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
-export default function Login({ onLogin, sharedPassword }) {
+export default function Login({ onLogin, sharedPassword, adminPassword }) {
+  const [loginMode, setLoginMode] = useState('user')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (password === sharedPassword) {
-      setError('')
-      onLogin()
+    if (loginMode === 'admin') {
+      if (password === adminPassword) {
+        setError('')
+        onLogin(true)
+      } else {
+        setError('Senha de administrador incorreta. Tente novamente.')
+      }
     } else {
-      setError('Senha compartilhada incorreta. Tente novamente.')
+      if (password === sharedPassword) {
+        setError('')
+        onLogin(false)
+      } else {
+        setError('Senha compartilhada incorreta. Tente novamente.')
+      }
     }
   }
 
@@ -30,9 +40,34 @@ export default function Login({ onLogin, sharedPassword }) {
           <p style={styles.subtitle}>Controle de Equipamentos</p>
         </div>
 
+        <div style={styles.tabContainer}>
+          <button
+            type="button"
+            style={{
+              ...styles.loginTab,
+              ...(loginMode === 'user' ? styles.loginTabActive : {})
+            }}
+            onClick={() => { setLoginMode('user'); setError(''); setPassword(''); }}
+          >
+            Equipe
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.loginTab,
+              ...(loginMode === 'admin' ? styles.loginTabActive : {})
+            }}
+            onClick={() => { setLoginMode('admin'); setError(''); setPassword(''); }}
+          >
+            Administrador
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} style={styles.form}>
           <div className="form-group" style={{ position: 'relative' }}>
-            <label htmlFor="password">Senha de Acesso Compartilhada</label>
+            <label htmlFor="password">
+              {loginMode === 'admin' ? 'Senha do Administrador' : 'Senha de Acesso Compartilhada'}
+            </label>
             <div style={styles.inputWrapper}>
               <span style={styles.inputIcon}>
                 <Lock size={18} color="var(--text-muted)" />
@@ -41,7 +76,7 @@ export default function Login({ onLogin, sharedPassword }) {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 className="form-input"
-                placeholder="Insira a senha de produção"
+                placeholder={loginMode === 'admin' ? 'Insira a senha do administrador' : 'Insira a senha de produção'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
@@ -184,5 +219,31 @@ const styles = {
     marginTop: '32px',
     fontSize: '0.75rem',
     color: 'var(--text-muted)',
+  },
+  tabContainer: {
+    display: 'flex',
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '12px',
+    padding: '4px',
+    marginBottom: '24px',
+  },
+  loginTab: {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-secondary)',
+    padding: '10px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-heading)',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+  },
+  loginTabActive: {
+    background: 'rgba(89, 143, 191, 0.15)',
+    color: '#ffffff',
+    border: '1px solid rgba(89, 143, 191, 0.25)',
   }
 }

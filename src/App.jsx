@@ -154,7 +154,9 @@ const MOCK_LOGS = [
 export default function App() {
   // Login Session
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [sharedPassword, setSharedPassword] = useState('producao2026')
+  const [adminPassword, setAdminPassword] = useState('admin2026')
 
   // Database
   const [equipment, setEquipment] = useState([])
@@ -182,6 +184,15 @@ export default function App() {
     const activeSession = sessionStorage.getItem('peixevoador_session_active')
     if (activeSession === 'true') {
       setIsLoggedIn(true)
+      const adminSession = sessionStorage.getItem('peixevoador_session_admin')
+      setIsAdmin(adminSession === 'true')
+    }
+
+    const savedAdminPassword = localStorage.getItem('peixevoador_admin_password')
+    if (savedAdminPassword) {
+      setAdminPassword(savedAdminPassword)
+    } else {
+      localStorage.setItem('peixevoador_admin_password', 'admin2026')
     }
 
     // Loaded Equipment
@@ -230,21 +241,33 @@ export default function App() {
   }
 
   // 2. Auth Actions
-  const handleLogin = () => {
+  const handleLogin = (adminRole) => {
     setIsLoggedIn(true)
+    setIsAdmin(adminRole)
     sessionStorage.setItem('peixevoador_session_active', 'true')
+    sessionStorage.setItem('peixevoador_session_admin', adminRole ? 'true' : 'false')
   }
 
   const handleLogout = () => {
     setIsLoggedIn(false)
+    setIsAdmin(false)
     sessionStorage.removeItem('peixevoador_session_active')
+    sessionStorage.removeItem('peixevoador_session_admin')
   }
 
-  const handleChangePassword = (currentPass, newPass) => {
-    if (currentPass === sharedPassword) {
-      setSharedPassword(newPass)
-      localStorage.setItem('peixevoador_shared_password', newPass)
-      return true
+  const handleChangePassword = (currentPass, newPass, isChangingAdmin = false) => {
+    if (isChangingAdmin) {
+      if (currentPass === adminPassword) {
+        setAdminPassword(newPass)
+        localStorage.setItem('peixevoador_admin_password', newPass)
+        return true
+      }
+    } else {
+      if (currentPass === sharedPassword) {
+        setSharedPassword(newPass)
+        localStorage.setItem('peixevoador_shared_password', newPass)
+        return true
+      }
     }
     return false
   }
@@ -449,6 +472,7 @@ export default function App() {
           equipment={equipment}
           logs={logs}
           people={people}
+          isAdmin={isAdmin}
           onAddEquipment={handleOpenAddModal}
           onUpdateEquipment={handleOpenEditModal}
           onDeleteEquipment={handleDeleteEquipment}
@@ -462,7 +486,11 @@ export default function App() {
           onDeletePerson={handleDeletePerson}
         />
       ) : (
-        <Login onLogin={handleLogin} sharedPassword={sharedPassword} />
+        <Login
+          onLogin={handleLogin}
+          sharedPassword={sharedPassword}
+          adminPassword={adminPassword}
+        />
       )}
 
       {/* Equipment Register / Edit Modal */}

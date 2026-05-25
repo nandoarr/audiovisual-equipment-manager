@@ -42,6 +42,7 @@ export default function Dashboard({
   equipment,
   logs,
   people = [],
+  isAdmin,
   onAddEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
@@ -76,11 +77,30 @@ export default function Dashboard({
   // People registration state
   const [newPersonName, setNewPersonName] = useState('')
 
+  // Admin password states
+  const [adminPasswordForm, setAdminPasswordForm] = useState({ current: '', newPass: '', confirm: '' })
+  const [adminPasswordMsg, setAdminPasswordMsg] = useState({ type: '', text: '' })
+
   const handleAddPersonSubmit = (e) => {
     e.preventDefault()
     if (!newPersonName.trim()) return
     onAddPerson(newPersonName)
     setNewPersonName('')
+  }
+
+  const handleAdminPasswordChange = (e) => {
+    e.preventDefault()
+    if (adminPasswordForm.newPass !== adminPasswordForm.confirm) {
+      setAdminPasswordMsg({ type: 'error', text: 'A nova senha e a confirmação não coincidem.' })
+      return
+    }
+    const success = onChangePassword(adminPasswordForm.current, adminPasswordForm.newPass, true)
+    if (success) {
+      setAdminPasswordMsg({ type: 'success', text: 'Senha do administrador atualizada!' })
+      setAdminPasswordForm({ current: '', newPass: '', confirm: '' })
+    } else {
+      setAdminPasswordMsg({ type: 'error', text: 'Senha atual do administrador incorreta.' })
+    }
   }
 
   // Statistics calculation
@@ -410,43 +430,9 @@ export default function Dashboard({
               </div>
             </div>
 
-            {/* Quick Actions & Recent Log */}
-            <div style={styles.overviewGrid}>
-              <div className="glass-panel" style={styles.overviewCard}>
-                <h3 style={styles.cardTitle}>Painel de Ações Rápidas</h3>
-                <div style={styles.actionButtons}>
-                  <button 
-                    className="btn btn-primary" 
-                    onClick={() => { setSelectedEquipment(null); onAddEquipment(); }}
-                    style={styles.actionBtn}
-                  >
-                    <Plus size={18} /> Novo Equipamento
-                  </button>
-                  <button 
-                    className="btn btn-secondary" 
-                    onClick={() => { setActiveTab('inventory'); setStatusFilter('Disponível'); }}
-                    style={styles.actionBtn}
-                  >
-                    <Send size={18} /> Direcionar Equipamento
-                  </button>
-                  <button 
-                    className="btn btn-secondary" 
-                    onClick={() => { setActiveTab('inventory'); setStatusFilter('Em Uso'); }}
-                    style={styles.actionBtn}
-                  >
-                    <RefreshCw size={18} /> Registrar Devolução
-                  </button>
-                </div>
-                <div style={styles.quickInfoBox}>
-                  <Info size={16} color="var(--color-secondary)" />
-                  <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>
-                    A senha de acesso atual é compartilhada. Todos os usuários logados usam a mesma base de dados armazenada neste navegador.
-                  </p>
-                </div>
-              </div>
-
-              <div className="glass-panel" style={styles.overviewCard}>
-                <h3 style={styles.cardTitle}>Atividade Recente</h3>
+            {/* Recent Log */}
+            <div className="glass-panel" style={{...styles.overviewCard, width: '100%'}}>
+              <h3 style={styles.cardTitle}>Atividade Recente</h3>
                 <div style={styles.recentActivityList}>
                   {logs.length === 0 ? (
                     <div style={styles.emptyState}>Sem registros de atividades recentes.</div>
@@ -469,7 +455,6 @@ export default function Dashboard({
                   )}
                 </div>
               </div>
-            </div>
           </div>
         )}
 
@@ -517,12 +502,14 @@ export default function Dashboard({
                   </select>
                 </div>
 
-                <button 
-                  className="btn btn-primary" 
-                  onClick={() => { setSelectedEquipment(null); onAddEquipment(); }}
-                >
-                  <Plus size={16} /> Cadastrar
-                </button>
+                {isAdmin && (
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => { setSelectedEquipment(null); onAddEquipment(); }}
+                  >
+                    <Plus size={16} /> Cadastrar
+                  </button>
+                )}
               </div>
             </div>
 
@@ -691,58 +678,108 @@ export default function Dashboard({
                 </div>
               </div>
 
-              {/* Right Column: People Registration */}
-              <div className="glass-panel" style={styles.peopleCard}>
-                <div style={styles.peopleHeader}>
-                  <Users size={20} color="var(--color-primary)" />
-                  <h3 style={styles.peopleTitle}>Cadastro de Pessoas</h3>
+              {/* Right Column: Actions & People */}
+              <div style={styles.rightColumnLayout}>
+                {/* Card 1: Ações Rápidas */}
+                <div className="glass-panel" style={styles.peopleCard}>
+                  <div style={styles.peopleHeader}>
+                    <Sliders size={20} color="var(--color-primary)" />
+                    <h3 style={styles.peopleTitle}>Ações Rápidas</h3>
+                  </div>
+                  <div style={styles.actionButtonsContainer}>
+                    {isAdmin && (
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={() => { setSelectedEquipment(null); onAddEquipment(); }}
+                        style={styles.rightActionBtn}
+                      >
+                        <Plus size={18} /> Novo Equipamento
+                      </button>
+                    )}
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => setStatusFilter('Disponível')}
+                      style={styles.rightActionBtn}
+                    >
+                      <Send size={16} /> Filtrar Disponíveis
+                    </button>
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => setStatusFilter('Em Uso')}
+                      style={styles.rightActionBtn}
+                    >
+                      <RefreshCw size={16} /> Filtrar Em Uso
+                    </button>
+                  </div>
                 </div>
-                <p style={styles.peopleDesc}>
-                  Cadastre as pessoas autorizadas a retirar equipamentos.
-                </p>
 
-                <form onSubmit={handleAddPersonSubmit} style={styles.peopleForm}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Nome completo..."
-                    value={newPersonName}
-                    onChange={(e) => setNewPersonName(e.target.value)}
-                    required
-                    style={{ padding: '10px 12px', fontSize: '0.9rem', flex: 1 }}
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ padding: '10px 14px' }} title="Cadastrar Responsável">
-                    <UserPlus size={16} />
-                  </button>
-                </form>
+                {/* Card 2: Cadastro de Pessoas */}
+                <div className="glass-panel" style={styles.peopleCard}>
+                  <div style={styles.peopleHeader}>
+                    <Users size={20} color="var(--color-primary)" />
+                    <h3 style={styles.peopleTitle}>Cadastro de Pessoas</h3>
+                  </div>
 
-                <div style={styles.peopleList}>
-                  {people.length === 0 ? (
-                    <div style={styles.peopleEmpty}>Nenhuma pessoa cadastrada.</div>
+                  {isAdmin ? (
+                    <>
+                      <p style={styles.peopleDesc}>
+                        Cadastre as pessoas autorizadas a retirar equipamentos.
+                      </p>
+
+                      <form onSubmit={handleAddPersonSubmit} style={styles.peopleForm}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Nome completo..."
+                          value={newPersonName}
+                          onChange={(e) => setNewPersonName(e.target.value)}
+                          required
+                          style={{ padding: '10px 12px', fontSize: '0.9rem', flex: 1 }}
+                        />
+                        <button type="submit" className="btn btn-primary" style={{ padding: '10px 14px' }} title="Cadastrar Responsável">
+                          <UserPlus size={16} />
+                        </button>
+                      </form>
+                    </>
                   ) : (
-                    people.map(person => {
-                      const isAssigned = equipment.some(e => e.status === 'Em Uso' && e.borrowerName === person.name)
-                      return (
-                        <div key={person.id} style={styles.personItem}>
-                          <span style={styles.personName} title={person.name}>{person.name}</span>
-                          {isAssigned && (
-                            <span style={styles.personBadge} title="Possui equipamentos em uso">
-                              Em Uso
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-icon"
-                            onClick={() => onDeletePerson(person.id)}
-                            style={styles.personDeleteBtn}
-                            title={`Remover ${person.name}`}
-                          >
-                            <Trash2 size={13} color="#fca5a5" />
-                          </button>
-                        </div>
-                      )
-                    })
+                    <div style={styles.adminRestrictionNotice}>
+                      <Lock size={16} color="var(--text-muted)" style={{ minWidth: '16px' }} />
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Cadastro restrito a administradores.
+                      </span>
+                    </div>
                   )}
+
+                  <div style={styles.peopleList}>
+                    {people.length === 0 ? (
+                      <div style={styles.peopleEmpty}>Nenhuma pessoa cadastrada.</div>
+                    ) : (
+                      people.map(person => {
+                        const isAssigned = equipment.some(e => e.status === 'Em Uso' && e.borrowerName === person.name)
+                        return (
+                          <div key={person.id} style={styles.personItem}>
+                            <span style={styles.personName} title={person.name}>{person.name}</span>
+                            {isAssigned && (
+                              <span style={styles.personBadge} title="Possui equipamentos em uso">
+                                Em Uso
+                              </span>
+                            )}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-icon"
+                                onClick={() => onDeletePerson(person.id)}
+                                style={styles.personDeleteBtn}
+                                title={`Remover ${person.name}`}
+                              >
+                                <Trash2 size={13} color="#fca5a5" />
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -895,6 +932,69 @@ export default function Dashboard({
                   </button>
                 </form>
               </div>
+
+              {/* Change Admin Password Block (Admin Only) */}
+              {isAdmin && (
+                <div className="glass-panel" style={styles.settingsCard}>
+                  <h3 style={styles.cardTitle}>Senha do Administrador</h3>
+                  <p style={styles.cardDescription}>
+                    Altere a senha de acesso administrativo ao painel.
+                  </p>
+
+                  <form onSubmit={handleAdminPasswordChange} style={{marginTop: '20px'}}>
+                    <div className="form-group">
+                      <label htmlFor="currentAdminPass">Senha Atual do Administrador</label>
+                      <input
+                        type="password"
+                        id="currentAdminPass"
+                        className="form-input"
+                        required
+                        value={adminPasswordForm.current}
+                        onChange={(e) => setAdminPasswordForm(prev => ({ ...prev, current: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="newAdminPass">Nova Senha do Administrador</label>
+                      <input
+                        type="password"
+                        id="newAdminPass"
+                        className="form-input"
+                        required
+                        value={adminPasswordForm.newPass}
+                        onChange={(e) => setAdminPasswordForm(prev => ({ ...prev, newPass: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="confirmAdminPass">Confirmar Nova Senha</label>
+                      <input
+                        type="password"
+                        id="confirmAdminPass"
+                        className="form-input"
+                        required
+                        value={adminPasswordForm.confirm}
+                        onChange={(e) => setAdminPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
+                      />
+                    </div>
+
+                    {adminPasswordMsg.text && (
+                      <div style={{
+                        ...styles.msgBox,
+                        color: adminPasswordMsg.type === 'success' ? '#34d399' : '#f87171',
+                        background: adminPasswordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                        border: `1px solid ${adminPasswordMsg.type === 'success' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(248, 113, 113, 0.2)'}`
+                      }}>
+                        {adminPasswordMsg.text}
+                      </div>
+                    )}
+
+                    <button type="submit" className="btn btn-primary" style={{marginTop: '10px'}}>
+                      Atualizar Senha Admin
+                    </button>
+                  </form>
+                </div>
+              )}
 
               {/* Data Backup & Restore Block */}
               <div className="glass-panel" style={styles.settingsCard}>
@@ -1557,5 +1657,33 @@ const styles = {
     justifyContent: 'center',
     cursor: 'pointer',
     transition: 'all 0.2s',
+  },
+  rightColumnLayout: {
+    flex: '1 1 300px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  actionButtonsContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    marginTop: '6px',
+  },
+  rightActionBtn: {
+    width: '100%',
+    padding: '10px 14px',
+    justifyContent: 'flex-start',
+    fontSize: '0.85rem',
+  },
+  adminRestrictionNotice: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px dashed rgba(255, 255, 255, 0.08)',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    marginBottom: '4px',
   }
 }

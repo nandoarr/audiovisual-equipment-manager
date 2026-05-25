@@ -761,7 +761,7 @@ export default function Dashboard({
 
               <div className="glass-panel" style={styles.statCard}>
                 <div style={styles.statHeader}>
-                  <span style={styles.statTitle}>Em Uso (Emprestados)</span>
+                  <span style={styles.statTitle}>Em Uso</span>
                   <div style={{...styles.statIconCircle, background: 'rgba(245, 158, 11, 0.1)'}}>
                     <UserCheck size={20} color="var(--color-warning)" />
                   </div>

@@ -18,7 +18,7 @@ de configuração, documentação, recursos visuais, modelos de dados, algoritmo
 lógica de negócio e quaisquer outros materiais contidos neste repositório ou
 distribuídos junto a ele.
 
-"Titular" refere-se a [FERNANDO ARRUDA COSTA DE OLIVEIRA], detentor exclusivo de todos
+"Titular" refere-se a [FERNANDO ARRUDA COSTA DE OLIVEIRA, detentor exclusivo de todos
 os direitos sobre o Software.
 
 "Usuário Autorizado" refere-se a qualquer pessoa física ou jurídica que tenha

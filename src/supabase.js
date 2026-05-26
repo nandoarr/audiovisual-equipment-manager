@@ -1,11 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Helper to get configuration from environment
+// Hardcoded values pasted by the user
+const HARDCODED_URL = 'https://iyzjzihmnuknukkiystb.supabase.co';
+const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5emp6aWhtbnVra2l5c3RiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDM3OTAsImV4cCI6MjA5NTMxOTc5MH0.bSEyHXD3ahCgg48jULm6mNCWsZqDU9H9O1Ws4bCQLHAI';
+
+// Helper to get configuration from environment or hardcoded fallback
 const getEnvConfig = () => {
   if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
     return {
       url: import.meta.env.VITE_SUPABASE_URL,
       anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY
+    };
+  }
+  if (HARDCODED_URL && HARDCODED_KEY) {
+    return {
+      url: HARDCODED_URL,
+      anonKey: HARDCODED_KEY
     };
   }
   return null;
@@ -61,3 +71,6 @@ export const getSupabase = () => {
 export const isSupabaseActive = () => {
   return getSupabase() !== null;
 };
+
+// Export direct client reference for compatibility
+export const supabase = getSupabase();

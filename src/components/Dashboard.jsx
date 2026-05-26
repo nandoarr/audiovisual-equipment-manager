@@ -70,7 +70,15 @@ export default function Dashboard({
   onDeletePerson,
   onQuickStatusChange,
   supabaseActive = false,
-  onUploadLocalData
+  onUploadLocalData,
+  dbDiagnostics = {
+    status: 'Desconectado',
+    equipmentTable: 'Não testado',
+    logsTable: 'Não testado',
+    peopleTable: 'Não testado',
+    settingsTable: 'Não testado',
+    lastError: null
+  }
 }) {
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -1372,6 +1380,64 @@ export default function Dashboard({
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                       Configurações de banco de dados restritas a administradores.
                     </span>
+                  </div>
+                )}
+
+                {/* Painel de Diagnóstico */}
+                {supabaseActive && (
+                  <div style={{
+                    marginTop: '24px',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    background: 'rgba(22, 20, 31, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                  }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#ffffff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Database size={16} color="var(--color-primary-hover)" /> Painel de Diagnóstico do Supabase
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '10px 20px', fontSize: '0.85rem' }}>
+                      <div style={{ color: 'var(--text-secondary)' }}>Status Geral:</div>
+                      <div style={{ color: dbDiagnostics.status.includes('Erro') ? '#fca5a5' : '#34d399', fontWeight: 'bold' }}>
+                        {dbDiagnostics.status}
+                      </div>
+
+                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "equipment" (Equipamentos):</div>
+                      <div style={{ color: dbDiagnostics.equipmentTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                        {dbDiagnostics.equipmentTable}
+                      </div>
+
+                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "logs" (Movimentações):</div>
+                      <div style={{ color: dbDiagnostics.logsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                        {dbDiagnostics.logsTable}
+                      </div>
+
+                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "people" (Responsáveis):</div>
+                      <div style={{ color: dbDiagnostics.peopleTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                        {dbDiagnostics.peopleTable}
+                      </div>
+
+                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "settings" (Senhas):</div>
+                      <div style={{ color: dbDiagnostics.settingsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                        {dbDiagnostics.settingsTable}
+                      </div>
+                    </div>
+
+                    {dbDiagnostics.lastError && (
+                      <div style={{
+                        marginTop: '15px',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: '#fca5a5',
+                        fontSize: '0.75rem',
+                        fontFamily: 'monospace',
+                        wordBreak: 'break-all'
+                      }}>
+                        <strong>Último Erro Detectado:</strong>
+                        <p style={{ margin: '4px 0 0 0', color: '#f87171' }}>{dbDiagnostics.lastError}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -164,6 +164,14 @@ export default function App() {
   const [logs, setLogs] = useState([])
   const [people, setPeople] = useState([])
   const [supabaseActive, setSupabaseActive] = useState(false)
+  const [dbDiagnostics, setDbDiagnostics] = useState({
+    status: 'Desconectado',
+    equipmentTable: 'Não testado',
+    logsTable: 'Não testado',
+    peopleTable: 'Não testado',
+    settingsTable: 'Não testado',
+    lastError: null
+  })
 
   // Modal Controls
   const [isEqModalOpen, setIsEqModalOpen] = useState(false)
@@ -216,27 +224,38 @@ export default function App() {
       // ----------------------------------------------------
       // SUPABASE SYNC ACTIVE
       // ----------------------------------------------------
+      setDbDiagnostics(prev => ({
+        ...prev,
+        status: 'Conectado (Carregando...)',
+        lastError: null
+      }))
       
       const fetchEquipment = async () => {
         const { data, error } = await supabase.from('equipment').select('*')
         if (error) {
           console.error("Erro ao buscar equipamentos:", error)
+          setDbDiagnostics(prev => ({ ...prev, equipmentTable: `Erro: ${error.message}`, lastError: error.message }))
           alert(`Erro Supabase (tabela equipment): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase (veja na aba Configurações).`)
           return
         }
-        if (data) setEquipment(data)
+        if (data) {
+          setEquipment(data)
+          setDbDiagnostics(prev => ({ ...prev, equipmentTable: `OK (${data.length} registros)` }))
+        }
       }
 
       const fetchLogs = async () => {
         const { data, error } = await supabase.from('logs').select('*')
         if (error) {
           console.error("Erro ao buscar logs:", error)
+          setDbDiagnostics(prev => ({ ...prev, logsTable: `Erro: ${error.message}`, lastError: error.message }))
           alert(`Erro Supabase (tabela logs): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
           return
         }
         if (data) {
           data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           setLogs(data)
+          setDbDiagnostics(prev => ({ ...prev, logsTable: `OK (${data.length} registros)` }))
         }
       }
 
@@ -244,19 +263,27 @@ export default function App() {
         const { data, error } = await supabase.from('people').select('*')
         if (error) {
           console.error("Erro ao buscar pessoas:", error)
+          setDbDiagnostics(prev => ({ ...prev, peopleTable: `Erro: ${error.message}`, lastError: error.message }))
           alert(`Erro Supabase (tabela people): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
           return
         }
-        if (data) setPeople(data)
+        if (data) {
+          setPeople(data)
+          setDbDiagnostics(prev => ({ ...prev, peopleTable: `OK (${data.length} registros)` }))
+        }
       }
 
       const fetchSettings = async () => {
         const { data, error } = await supabase.from('settings').select('*').eq('key', 'passwords').single()
         if (error && error.code !== 'PGRST116') { // PGRST116 significa "nenhuma linha encontrada", o que é normal se estiver vazio
           console.error("Erro ao buscar configurações:", error)
+          setDbDiagnostics(prev => ({ ...prev, settingsTable: `Erro: ${error.message}`, lastError: error.message }))
           alert(`Erro Supabase (tabela settings): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
           return
         }
+        
+        setDbDiagnostics(prev => ({ ...prev, settingsTable: 'OK', status: 'Conectado e Ativo' }))
+
         if (data && data.value) {
           if (data.value.sharedPassword) setSharedPassword(data.value.sharedPassword)
           if (data.value.adminPassword) setAdminPassword(data.value.adminPassword)
@@ -267,6 +294,7 @@ export default function App() {
           })
           if (upsertError) {
             console.error("Erro ao criar senhas padrão no Supabase:", upsertError)
+            setDbDiagnostics(prev => ({ ...prev, settingsTable: `Erro: ${upsertError.message}`, lastError: upsertError.message }))
           }
         }
       }
@@ -298,6 +326,14 @@ export default function App() {
         supabase.removeChannel(channel)
       }
     } else {
+      setDbDiagnostics({
+        status: 'Desconectado (Modo Local)',
+        equipmentTable: 'LocalStorage Ativo',
+        logsTable: 'LocalStorage Ativo',
+        peopleTable: 'LocalStorage Ativo',
+        settingsTable: 'LocalStorage Ativo',
+        lastError: null
+      })
       // ----------------------------------------------------
       // LOCALSTORAGE SYNC FALLBACK
       // ----------------------------------------------------
@@ -871,6 +907,7 @@ export default function App() {
           onQuickStatusChange={handleQuickStatusChange}
           supabaseActive={supabaseActive}
           onUploadLocalData={handleUploadLocalDataToSupabase}
+          dbDiagnostics={dbDiagnostics}
         />
       ) : (
         <Login

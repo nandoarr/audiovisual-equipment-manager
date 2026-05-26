@@ -1236,107 +1236,109 @@ export default function Dashboard({
           <div style={{...styles.tabContent, maxWidth: '800px', margin: '0 auto'}}>
             <div style={styles.settingsGrid}>
               
-              {/* Supabase Database Connection Block */}
-              <div className="glass-panel" style={styles.settingsCard}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <Database size={20} color="var(--color-primary)" />
-                  <h3 style={{...styles.cardTitle, margin: 0}}>Conexão Banco de Dados (Backend)</h3>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  {supabaseActive ? (
-                    <>
-                      <Wifi size={18} color="var(--color-success)" />
-                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
-                        Status: <span style={{ color: 'var(--color-success)' }}>Conectado (Servidor Central Ativo)</span>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff size={18} color="var(--color-warning)" />
-                      <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
-                        Status: <span style={{ color: 'var(--color-warning)' }}>Desconectado (Modo Local Offline)</span>
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <p style={styles.cardDescription}>
-                  O aplicativo está configurado para conectar-se de forma segura e centralizada através do servidor backend. As credenciais do banco de dados estão protegidas no lado do servidor.
-                </p>
-
-                {isAdmin && supabaseActive && (
-                  <div style={{ marginTop: '20px' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={onUploadLocalData}
-                      style={{ width: '100%' }}
-                      title="Sobe os dados do LocalStorage para o Banco de Dados para iniciar preenchido"
-                    >
-                      Enviar Dados Locais para o Servidor Central
-                    </button>
+              {/* Supabase Database Connection Block (Visível apenas para Administradores) */}
+              {isAdmin && (
+                <div className="glass-panel" style={styles.settingsCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                    <Database size={20} color="var(--color-primary)" />
+                    <h3 style={{...styles.cardTitle, margin: 0}}>Conexão Banco de Dados (Backend)</h3>
                   </div>
-                )}
-
-                {/* Painel de Diagnóstico */}
-                {supabaseActive && (
-                  <div style={{
-                    marginTop: '24px',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    background: 'rgba(22, 20, 31, 0.4)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                  }}>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#ffffff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Database size={16} color="var(--color-primary-hover)" /> Painel de Diagnóstico do Supabase
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '10px 20px', fontSize: '0.85rem' }}>
-                      <div style={{ color: 'var(--text-secondary)' }}>Status Geral:</div>
-                      <div style={{ color: dbDiagnostics.status.includes('Erro') ? '#fca5a5' : '#34d399', fontWeight: 'bold' }}>
-                        {dbDiagnostics.status}
-                      </div>
-
-                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "equipment" (Equipamentos):</div>
-                      <div style={{ color: dbDiagnostics.equipmentTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
-                        {dbDiagnostics.equipmentTable}
-                      </div>
-
-                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "logs" (Movimentações):</div>
-                      <div style={{ color: dbDiagnostics.logsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
-                        {dbDiagnostics.logsTable}
-                      </div>
-
-                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "people" (Responsáveis):</div>
-                      <div style={{ color: dbDiagnostics.peopleTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
-                        {dbDiagnostics.peopleTable}
-                      </div>
-
-                      <div style={{ color: 'var(--text-secondary)' }}>Tabela "settings" (Senhas):</div>
-                      <div style={{ color: dbDiagnostics.settingsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
-                        {dbDiagnostics.settingsTable}
-                      </div>
-                    </div>
-
-                    {dbDiagnostics.lastError && (
-                      <div style={{
-                        marginTop: '15px',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.08)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        color: '#fca5a5',
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace',
-                        wordBreak: 'break-all'
-                      }}>
-                        <strong>Último Erro Detectado:</strong>
-                        <p style={{ margin: '4px 0 0 0', color: '#f87171' }}>{dbDiagnostics.lastError}</p>
-                      </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {supabaseActive ? (
+                      <>
+                        <Wifi size={18} color="var(--color-success)" />
+                        <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
+                          Status: <span style={{ color: 'var(--color-success)' }}>Conectado (Servidor Central Ativo)</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff size={18} color="var(--color-warning)" />
+                        <span style={{ fontSize: '0.9rem', color: '#ffffff', fontWeight: 'bold' }}>
+                          Status: <span style={{ color: 'var(--color-warning)' }}>Desconectado (Modo Local Offline)</span>
+                        </span>
+                      </>
                     )}
                   </div>
-                )}
-              </div>
+
+                  <p style={styles.cardDescription}>
+                    O aplicativo está configurado para conectar-se de forma segura e centralizada através do servidor backend. As credenciais do banco de dados estão protegidas no lado do servidor.
+                  </p>
+
+                  {supabaseActive && (
+                    <div style={{ marginTop: '20px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={onUploadLocalData}
+                        style={{ width: '100%' }}
+                        title="Sobe os dados do LocalStorage para o Banco de Dados para iniciar preenchido"
+                      >
+                        Enviar Dados Locais para o Servidor Central
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Painel de Diagnóstico */}
+                  {supabaseActive && (
+                    <div style={{
+                      marginTop: '24px',
+                      padding: '20px',
+                      borderRadius: '12px',
+                      background: 'rgba(22, 20, 31, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    }}>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#ffffff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Database size={16} color="var(--color-primary-hover)" /> Painel de Diagnóstico do Supabase
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '10px 20px', fontSize: '0.85rem' }}>
+                        <div style={{ color: 'var(--text-secondary)' }}>Status Geral:</div>
+                        <div style={{ color: dbDiagnostics.status.includes('Erro') ? '#fca5a5' : '#34d399', fontWeight: 'bold' }}>
+                          {dbDiagnostics.status}
+                        </div>
+
+                        <div style={{ color: 'var(--text-secondary)' }}>Tabela "equipment" (Equipamentos):</div>
+                        <div style={{ color: dbDiagnostics.equipmentTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                          {dbDiagnostics.equipmentTable}
+                        </div>
+
+                        <div style={{ color: 'var(--text-secondary)' }}>Tabela "logs" (Movimentações):</div>
+                        <div style={{ color: dbDiagnostics.logsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                          {dbDiagnostics.logsTable}
+                        </div>
+
+                        <div style={{ color: 'var(--text-secondary)' }}>Tabela "people" (Responsáveis):</div>
+                        <div style={{ color: dbDiagnostics.peopleTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                          {dbDiagnostics.peopleTable}
+                        </div>
+
+                        <div style={{ color: 'var(--text-secondary)' }}>Tabela "settings" (Senhas):</div>
+                        <div style={{ color: dbDiagnostics.settingsTable.includes('Erro') ? '#fca5a5' : '#34d399', fontFamily: 'monospace' }}>
+                          {dbDiagnostics.settingsTable}
+                        </div>
+                      </div>
+
+                      {dbDiagnostics.lastError && (
+                        <div style={{
+                          marginTop: '15px',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          color: '#fca5a5',
+                          fontSize: '0.75rem',
+                          fontFamily: 'monospace',
+                          wordBreak: 'break-all'
+                        }}>
+                          <strong>Último Erro Detectado:</strong>
+                          <p style={{ margin: '4px 0 0 0', color: '#f87171' }}>{dbDiagnostics.lastError}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Change Password Block */}
               {isAdmin && (

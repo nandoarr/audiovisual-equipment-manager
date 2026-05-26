@@ -1,7 +1,7 @@
 LICENÇA PROPRIETÁRIA RESTRITIVA
 ================================
 
-Copyright (c) 2026 [FERNANDO ARRUDA COSTA DE OLIVEIRA / COMPREÇO]
+Copyright (c) 2026 [FERNANDO ARRUDA COSTA DE OLIVEIRA]
 Todos os direitos reservados.
 
 ================================================================================
@@ -18,7 +18,7 @@ de configuração, documentação, recursos visuais, modelos de dados, algoritmo
 lógica de negócio e quaisquer outros materiais contidos neste repositório ou
 distribuídos junto a ele.
 
-"Titular" refere-se a [FERNANDO ARRUDA COSTA DE OLIVEIRA / COMPREÇO], detentor exclusivo de todos
+"Titular" refere-se a [FERNANDO ARRUDA COSTA DE OLIVEIRA], detentor exclusivo de todos
 os direitos sobre o Software.
 
 "Usuário Autorizado" refere-se a qualquer pessoa física ou jurídica que tenha
@@ -168,4 +168,4 @@ Para solicitar autorização de uso, entre em contato:
 [OLIVEIRA.FERNANDOA@GMAIL.COM]
 ================================================================================
 
-Copyright (c) 2026 [FERNANDO ARRUDA COSTA DE OLIVEIRA / COMPREÇO] — Todos os direitos reservados.
+Copyright (c) 2026 [FERNANDO ARRUDA COSTA DE OLIVEIRA] — Todos os direitos reservados.

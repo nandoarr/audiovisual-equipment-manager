@@ -3,7 +3,6 @@ import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import EquipmentModal from './components/EquipmentModal'
 import LoanModal from './components/LoanModal'
-import { getSupabase, isSupabaseActive } from './supabase'
 
 const MOCK_PEOPLE = [
   { id: 'p-1', name: 'Amanda Silva' },
@@ -180,13 +179,9 @@ export default function App() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false)
   const [equipmentForLoan, setEquipmentForLoan] = useState(null)
 
-  // 1. Initial Load and Supabase Realtime Listeners
+  // 1. Initial Load and Polling loop
   useEffect(() => {
-    const supabase = getSupabase()
-    const active = isSupabaseActive()
-    setSupabaseActive(active)
-
-    // Loaded shared password
+    // Loaded shared password from local storage as initial cache
     const savedPassword = localStorage.getItem('peixevoador_shared_password')
     if (savedPassword) {
       setSharedPassword(savedPassword)
@@ -220,179 +215,115 @@ export default function App() {
       localStorage.setItem('peixevoador_admin_password', 'admin2026')
     }
 
-    if (active) {
-      // ----------------------------------------------------
-      // SUPABASE SYNC ACTIVE
-      // ----------------------------------------------------
-      setDbDiagnostics(prev => ({
-        ...prev,
-        status: 'Conectado (Carregando...)',
-        lastError: null
-      }))
-      
-      const fetchEquipment = async () => {
-        const { data, error } = await supabase.from('equipment').select('*')
-        if (error) {
-          console.error("Erro ao buscar equipamentos:", error)
-          setDbDiagnostics(prev => ({ ...prev, equipmentTable: `Erro: ${error.message}`, lastError: error.message }))
-          alert(`Erro Supabase (tabela equipment): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase (veja na aba Configurações).`)
-          return
-        }
-        if (data) {
-          setEquipment(data)
-          setDbDiagnostics(prev => ({ ...prev, equipmentTable: `OK (${data.length} registros)` }))
-        }
-      }
+    const fetchAllData = async () => {
+      try {
+        setDbDiagnostics(prev => ({
+          ...prev,
+          status: 'Conectado (Atualizando...)',
+          lastError: null
+        }))
 
-      const fetchLogs = async () => {
-        const { data, error } = await supabase.from('logs').select('*')
-        if (error) {
-          console.error("Erro ao buscar logs:", error)
-          setDbDiagnostics(prev => ({ ...prev, logsTable: `Erro: ${error.message}`, lastError: error.message }))
-          alert(`Erro Supabase (tabela logs): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
-          return
-        }
-        if (data) {
-          data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-          setLogs(data)
-          setDbDiagnostics(prev => ({ ...prev, logsTable: `OK (${data.length} registros)` }))
-        }
-      }
+        // Fetch Equipment
+        const resEq = await fetch('/api/equipment')
+        if (!resEq.ok) throw new Error(`Erro ao buscar equipamentos: ${resEq.statusText}`)
+        const dataEq = await resEq.json()
+        setEquipment(dataEq)
+        localStorage.setItem('peixevoador_equipment', JSON.stringify(dataEq))
+        setDbDiagnostics(prev => ({ ...prev, equipmentTable: `OK (${dataEq.length} registros)` }))
 
-      const fetchPeople = async () => {
-        const { data, error } = await supabase.from('people').select('*')
-        if (error) {
-          console.error("Erro ao buscar pessoas:", error)
-          setDbDiagnostics(prev => ({ ...prev, peopleTable: `Erro: ${error.message}`, lastError: error.message }))
-          alert(`Erro Supabase (tabela people): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
-          return
-        }
-        if (data) {
-          setPeople(data)
-          setDbDiagnostics(prev => ({ ...prev, peopleTable: `OK (${data.length} registros)` }))
-        }
-      }
+        // Fetch Logs
+        const resLogs = await fetch('/api/logs')
+        if (!resLogs.ok) throw new Error(`Erro ao buscar logs: ${resLogs.statusText}`)
+        const dataLogs = await resLogs.json()
+        setLogs(dataLogs)
+        localStorage.setItem('peixevoador_logs', JSON.stringify(dataLogs))
+        setDbDiagnostics(prev => ({ ...prev, logsTable: `OK (${dataLogs.length} registros)` }))
 
-      const fetchSettings = async () => {
-        const { data, error } = await supabase.from('settings').select('*').eq('key', 'passwords').single()
-        if (error && error.code !== 'PGRST116') { // PGRST116 significa "nenhuma linha encontrada", o que é normal se estiver vazio
-          console.error("Erro ao buscar configurações:", error)
-          setDbDiagnostics(prev => ({ ...prev, settingsTable: `Erro: ${error.message}`, lastError: error.message }))
-          alert(`Erro Supabase (tabela settings): ${error.message}. Verifique se você executou o script SQL para criar as tabelas no console do Supabase.`)
-          return
+        // Fetch People
+        const resPeople = await fetch('/api/people')
+        if (!resPeople.ok) throw new Error(`Erro ao buscar pessoas: ${resPeople.statusText}`)
+        const dataPeople = await resPeople.json()
+        setPeople(dataPeople)
+        localStorage.setItem('peixevoador_people', JSON.stringify(dataPeople))
+        setDbDiagnostics(prev => ({ ...prev, peopleTable: `OK (${dataPeople.length} registros)` }))
+
+        // Fetch Settings
+        const resSettings = await fetch('/api/settings')
+        if (!resSettings.ok) throw new Error(`Erro ao buscar configurações: ${resSettings.statusText}`)
+        const dataSettings = await resSettings.json()
+        
+        if (dataSettings && dataSettings.value) {
+          if (dataSettings.value.sharedPassword) {
+            setSharedPassword(dataSettings.value.sharedPassword)
+            localStorage.setItem('peixevoador_shared_password', dataSettings.value.sharedPassword)
+          }
+          if (dataSettings.value.adminPassword) {
+            setAdminPassword(dataSettings.value.adminPassword)
+            localStorage.setItem('peixevoador_admin_password', dataSettings.value.adminPassword)
+          }
         }
         
         setDbDiagnostics(prev => ({ ...prev, settingsTable: 'OK', status: 'Conectado e Ativo' }))
+        setSupabaseActive(true)
 
-        if (data && data.value) {
-          if (data.value.sharedPassword) setSharedPassword(data.value.sharedPassword)
-          if (data.value.adminPassword) setAdminPassword(data.value.adminPassword)
-        } else {
-          const { error: upsertError } = await supabase.from('settings').upsert({
-            key: 'passwords',
-            value: { sharedPassword: 'producao2026', adminPassword: 'admin2026' }
-          })
-          if (upsertError) {
-            console.error("Erro ao criar senhas padrão no Supabase:", upsertError)
-            setDbDiagnostics(prev => ({ ...prev, settingsTable: `Erro: ${upsertError.message}`, lastError: upsertError.message }))
-          }
-        }
-      }
+      } catch (err) {
+        console.error("Erro na sincronização com o backend:", err)
+        setSupabaseActive(false)
+        setDbDiagnostics(prev => ({
+          ...prev,
+          status: `Erro de Conexão: ${err.message}`,
+          lastError: err.message
+        }))
 
-      // Initial Fetch
-      fetchEquipment()
-      fetchLogs()
-      fetchPeople()
-      fetchSettings()
+        // Fallback to local storage
+        const savedEquipment = localStorage.getItem('peixevoador_equipment')
+        const savedLogs = localStorage.getItem('peixevoador_logs')
+        const savedPeople = localStorage.getItem('peixevoador_people')
 
-      // Set up realtime channel subscription
-      const channel = supabase
-        .channel('schema-db-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => {
-          fetchEquipment()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'logs' }, () => {
-          fetchLogs()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, () => {
-          fetchPeople()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
-          fetchSettings()
-        })
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    } else {
-      setDbDiagnostics({
-        status: 'Desconectado (Modo Local)',
-        equipmentTable: 'LocalStorage Ativo',
-        logsTable: 'LocalStorage Ativo',
-        peopleTable: 'LocalStorage Ativo',
-        settingsTable: 'LocalStorage Ativo',
-        lastError: null
-      })
-      // ----------------------------------------------------
-      // LOCALSTORAGE SYNC FALLBACK
-      // ----------------------------------------------------
-      const savedEquipment = localStorage.getItem('peixevoador_equipment')
-      const savedLogs = localStorage.getItem('peixevoador_logs')
-      const savedPeople = localStorage.getItem('peixevoador_people')
-
-      if (savedEquipment) {
-        setEquipment(JSON.parse(savedEquipment))
-      } else {
-        setEquipment(MOCK_EQUIPMENT)
-        localStorage.setItem('peixevoador_equipment', JSON.stringify(MOCK_EQUIPMENT))
-      }
-
-      if (savedLogs) {
-        setLogs(JSON.parse(savedLogs))
-      } else {
-        setLogs(MOCK_LOGS)
-        localStorage.setItem('peixevoador_logs', JSON.stringify(MOCK_LOGS))
-      }
-
-      if (savedPeople) {
-        setPeople(JSON.parse(savedPeople))
-      } else {
-        setPeople(MOCK_PEOPLE)
-        localStorage.setItem('peixevoador_people', JSON.stringify(MOCK_PEOPLE))
+        if (savedEquipment) setEquipment(JSON.parse(savedEquipment))
+        if (savedLogs) setLogs(JSON.parse(savedLogs))
+        if (savedPeople) setPeople(JSON.parse(savedPeople))
       }
     }
+
+    // Initial Fetch
+    fetchAllData()
+
+    // 5-Second Polling Loop
+    const interval = setInterval(fetchAllData, 5000)
+
+    return () => clearInterval(interval)
   }, [])
 
-  // Write database updates (differential sync with Supabase or fallback to localStorage)
+  // Write database updates via backend proxy
   const updateEquipmentList = async (newEquipment) => {
     // Unconditionally update React state and localStorage cache for instant UI response and offline copy
     setEquipment(newEquipment)
     localStorage.setItem('peixevoador_equipment', JSON.stringify(newEquipment))
 
-    if (supabaseActive) {
-      const supabase = getSupabase()
-      const deleted = equipment.filter(e => !newEquipment.some(ne => ne.id === e.id))
-      const addedOrModified = newEquipment.filter(ne => {
-        const existing = equipment.find(e => e.id === ne.id)
-        if (!existing) return true
-        return JSON.stringify(existing) !== JSON.stringify(ne)
-      })
+    const deleted = equipment.filter(e => !newEquipment.some(ne => ne.id === e.id))
+    const addedOrModified = newEquipment.filter(ne => {
+      const existing = equipment.find(e => e.id === ne.id)
+      if (!existing) return true
+      return JSON.stringify(existing) !== JSON.stringify(ne)
+    })
 
-      try {
-        if (deleted.length > 0) {
-          const deleteIds = deleted.map(item => item.id)
-          const { error } = await supabase.from('equipment').delete().in('id', deleteIds)
-          if (error) throw error
-        }
-        if (addedOrModified.length > 0) {
-          const { error } = await supabase.from('equipment').upsert(addedOrModified)
-          if (error) throw error
-        }
-      } catch (e) {
-        console.error("Erro ao sincronizar equipamentos com o Supabase:", e)
-        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
+    try {
+      for (const item of deleted) {
+        const res = await fetch(`/api/equipment/${item.id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error(await res.text())
       }
+      if (addedOrModified.length > 0) {
+        const res = await fetch('/api/equipment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(addedOrModified)
+        })
+        if (!res.ok) throw new Error(await res.text())
+      }
+    } catch (e) {
+      console.error("Erro ao sincronizar equipamentos com o backend:", e)
+      setDbDiagnostics(prev => ({ ...prev, lastError: e.message || String(e) }))
     }
   }
 
@@ -401,29 +332,29 @@ export default function App() {
     setLogs(newLogs)
     localStorage.setItem('peixevoador_logs', JSON.stringify(newLogs))
 
-    if (supabaseActive) {
-      const supabase = getSupabase()
-      const deleted = logs.filter(l => !newLogs.some(nl => nl.id === l.id))
-      const addedOrModified = newLogs.filter(nl => {
-        const existing = logs.find(l => l.id === nl.id)
-        if (!existing) return true
-        return JSON.stringify(existing) !== JSON.stringify(nl)
-      })
+    const deleted = logs.filter(l => !newLogs.some(nl => nl.id === l.id))
+    const addedOrModified = newLogs.filter(nl => {
+      const existing = logs.find(l => l.id === nl.id)
+      if (!existing) return true
+      return JSON.stringify(existing) !== JSON.stringify(nl)
+    })
 
-      try {
-        if (deleted.length > 0) {
-          const deleteIds = deleted.map(item => item.id)
-          const { error } = await supabase.from('logs').delete().in('id', deleteIds)
-          if (error) throw error
-        }
-        if (addedOrModified.length > 0) {
-          const { error } = await supabase.from('logs').upsert(addedOrModified)
-          if (error) throw error
-        }
-      } catch (e) {
-        console.error("Erro ao sincronizar logs com o Supabase:", e)
-        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
+    try {
+      for (const item of deleted) {
+        const res = await fetch(`/api/logs/${item.id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error(await res.text())
       }
+      if (addedOrModified.length > 0) {
+        const res = await fetch('/api/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(addedOrModified)
+        })
+        if (!res.ok) throw new Error(await res.text())
+      }
+    } catch (e) {
+      console.error("Erro ao sincronizar logs com o backend:", e)
+      setDbDiagnostics(prev => ({ ...prev, lastError: e.message || String(e) }))
     }
   }
 
@@ -432,29 +363,29 @@ export default function App() {
     setPeople(newPeople)
     localStorage.setItem('peixevoador_people', JSON.stringify(newPeople))
 
-    if (supabaseActive) {
-      const supabase = getSupabase()
-      const deleted = people.filter(p => !newPeople.some(np => np.id === p.id))
-      const addedOrModified = newPeople.filter(np => {
-        const existing = people.find(p => p.id === np.id)
-        if (!existing) return true
-        return JSON.stringify(existing) !== JSON.stringify(np)
-      })
+    const deleted = people.filter(p => !newPeople.some(np => np.id === p.id))
+    const addedOrModified = newPeople.filter(np => {
+      const existing = people.find(p => p.id === np.id)
+      if (!existing) return true
+      return JSON.stringify(existing) !== JSON.stringify(np)
+    })
 
-      try {
-        if (deleted.length > 0) {
-          const deleteIds = deleted.map(item => item.id)
-          const { error } = await supabase.from('people').delete().in('id', deleteIds)
-          if (error) throw error
-        }
-        if (addedOrModified.length > 0) {
-          const { error } = await supabase.from('people').upsert(addedOrModified)
-          if (error) throw error
-        }
-      } catch (e) {
-        console.error("Erro ao sincronizar pessoas com o Supabase:", e)
-        alert(`Erro de sincronização no Supabase: ${e.message || JSON.stringify(e)}. Verifique se as permissões (RLS) estão desabilitadas no painel do Supabase.`)
+    try {
+      for (const item of deleted) {
+        const res = await fetch(`/api/people/${item.id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error(await res.text())
       }
+      if (addedOrModified.length > 0) {
+        const res = await fetch('/api/people', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(addedOrModified)
+        })
+        if (!res.ok) throw new Error(await res.text())
+      }
+    } catch (e) {
+      console.error("Erro ao sincronizar pessoas com o backend:", e)
+      setDbDiagnostics(prev => ({ ...prev, lastError: e.message || String(e) }))
     }
   }
 
@@ -528,67 +459,77 @@ export default function App() {
       if (currentPass === adminPassword) {
         setAdminPassword(newPass)
         localStorage.setItem('peixevoador_admin_password', newPass)
-        if (supabaseActive) {
-          const supabase = getSupabase()
-          supabase.from('settings').upsert({
+        // Background sync settings to backend
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             key: 'passwords',
             value: { sharedPassword, adminPassword: newPass }
           })
-        }
+        }).catch(err => console.error("Erro ao sincronizar senha do admin com o backend:", err))
         return true
       }
     } else {
       if (currentPass === sharedPassword) {
         setSharedPassword(newPass)
         localStorage.setItem('peixevoador_shared_password', newPass)
-        if (supabaseActive) {
-          const supabase = getSupabase()
-          supabase.from('settings').upsert({
+        // Background sync settings to backend
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             key: 'passwords',
             value: { sharedPassword: newPass, adminPassword }
           })
-        }
+        }).catch(err => console.error("Erro ao sincronizar senha compartilhada com o backend:", err))
         return true
       }
     }
     return false
   }
 
-  // Upload local data to Supabase database
+  // Upload local data to Supabase database via backend
   const handleUploadLocalDataToSupabase = async () => {
-    const supabase = getSupabase()
-    if (!supabase) {
-      alert('Supabase não está inicializado.')
-      return
-    }
-
     try {
-      const localEq = equipment
-      const localLogs = logs
-      const localPeople = people
-
-      if (localEq.length > 0) {
-        const { error } = await supabase.from('equipment').upsert(localEq)
-        if (error) throw error
+      if (equipment.length > 0) {
+        const res = await fetch('/api/equipment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(equipment)
+        })
+        if (!res.ok) throw new Error(await res.text())
       }
 
-      if (localLogs.length > 0) {
-        const { error } = await supabase.from('logs').upsert(localLogs)
-        if (error) throw error
+      if (logs.length > 0) {
+        const res = await fetch('/api/logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logs)
+        })
+        if (!res.ok) throw new Error(await res.text())
       }
 
-      if (localPeople.length > 0) {
-        const { error } = await supabase.from('people').upsert(localPeople)
-        if (error) throw error
+      if (people.length > 0) {
+        const res = await fetch('/api/people', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(people)
+        })
+        if (!res.ok) throw new Error(await res.text())
       }
 
-      const { error } = await supabase.from('settings').upsert({
-        key: 'passwords',
-        value: { sharedPassword, adminPassword }
+      const resSettings = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'passwords',
+          value: { sharedPassword, adminPassword }
+        })
       })
-      if (error) throw error
+      if (!resSettings.ok) throw new Error(await resSettings.text())
 
-      alert('Todos os dados locais foram enviados com sucesso para o Supabase!')
+      alert('Todos os dados locais foram enviados com sucesso para o Banco de Dados (via Backend)!')
     } catch (e) {
       console.error(e)
       alert(`Erro ao subir dados locais: ${e.message}`)

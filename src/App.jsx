@@ -163,6 +163,9 @@ export default function App() {
   const [logs, setLogs] = useState([])
   const [people, setPeople] = useState([])
   const [supabaseActive, setSupabaseActive] = useState(false)
+  const [jobs, setJobs] = useState([])
+  const [icloudConnected, setIcloudConnected] = useState(false)
+  const [icloudEmail, setIcloudEmail] = useState('')
   const [dbDiagnostics, setDbDiagnostics] = useState({
     status: 'Desconectado',
     equipmentTable: 'Não testado',
@@ -247,6 +250,26 @@ export default function App() {
         localStorage.setItem('peixevoador_people', JSON.stringify(dataPeople))
         setDbDiagnostics(prev => ({ ...prev, peopleTable: `OK (${dataPeople.length} registros)` }))
 
+        // Fetch Jobs
+        const resJobs = await fetch('/api/jobs')
+        if (resJobs.ok) {
+          const dataJobs = await resJobs.json()
+          setJobs(dataJobs || [])
+          localStorage.setItem('peixevoador_jobs', JSON.stringify(dataJobs || []))
+        }
+
+        // Fetch iCloud Settings
+        const resCalendar = await fetch('/api/calendar')
+        if (resCalendar.ok) {
+          const dataCalendar = await resCalendar.json()
+          if (dataCalendar) {
+            setIcloudConnected(!!dataCalendar.connected)
+            setIcloudEmail(dataCalendar.email || '')
+            localStorage.setItem('peixevoador_icloud_connected', String(!!dataCalendar.connected))
+            localStorage.setItem('peixevoador_icloud_email', dataCalendar.email || '')
+          }
+        }
+
         // Fetch Settings
         const resSettings = await fetch('/api/settings')
         if (!resSettings.ok) throw new Error(`Erro ao buscar configurações: ${resSettings.statusText}`)
@@ -279,10 +302,16 @@ export default function App() {
         const savedEquipment = localStorage.getItem('peixevoador_equipment')
         const savedLogs = localStorage.getItem('peixevoador_logs')
         const savedPeople = localStorage.getItem('peixevoador_people')
+        const savedJobs = localStorage.getItem('peixevoador_jobs')
+        const savedIcloudConnected = localStorage.getItem('peixevoador_icloud_connected')
+        const savedIcloudEmail = localStorage.getItem('peixevoador_icloud_email')
 
         if (savedEquipment) setEquipment(JSON.parse(savedEquipment))
         if (savedLogs) setLogs(JSON.parse(savedLogs))
         if (savedPeople) setPeople(JSON.parse(savedPeople))
+        if (savedJobs) setJobs(JSON.parse(savedJobs))
+        if (savedIcloudConnected) setIcloudConnected(savedIcloudConnected === 'true')
+        if (savedIcloudEmail) setIcloudEmail(savedIcloudEmail)
       }
     }
 
@@ -820,6 +849,38 @@ export default function App() {
     updateEquipmentList([...equipment, ...formatted])
   }
 
+  const handleUpdateJobs = async (newJobs) => {
+    setJobs(newJobs)
+    localStorage.setItem('peixevoador_jobs', JSON.stringify(newJobs))
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newJobs)
+      })
+      if (!res.ok) throw new Error(await res.text())
+    } catch (e) {
+      console.error("Erro ao sincronizar trabalhos com o backend:", e)
+    }
+  }
+
+  const handleUpdateIcloud = async (connected, email) => {
+    setIcloudConnected(connected)
+    setIcloudEmail(email)
+    localStorage.setItem('peixevoador_icloud_connected', String(connected))
+    localStorage.setItem('peixevoador_icloud_email', email)
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connected, email })
+      })
+      if (!res.ok) throw new Error(await res.text())
+    } catch (e) {
+      console.error("Erro ao sincronizar calendário iCloud com o backend:", e)
+    }
+  }
+
   return (
     <>
       {/* Background Ambience */}
@@ -849,6 +910,11 @@ export default function App() {
           supabaseActive={supabaseActive}
           onUploadLocalData={handleUploadLocalDataToSupabase}
           dbDiagnostics={dbDiagnostics}
+          jobs={jobs}
+          onUpdateJobs={handleUpdateJobs}
+          icloudConnected={icloudConnected}
+          icloudEmail={icloudEmail}
+          onUpdateIcloud={handleUpdateIcloud}
         />
       ) : (
         <Login

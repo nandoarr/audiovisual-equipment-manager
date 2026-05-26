@@ -155,6 +155,58 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
+// --- Trabalhos / Relatórios (Jobs) ---
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('settings').select('*').eq('key', 'jobs').single();
+    if (error && error.code !== 'PGRST116') throw error;
+    res.json(data ? data.value : []);
+  } catch (error) {
+    console.error('[API] Erro ao buscar trabalhos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/jobs', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('settings').upsert({
+      key: 'jobs',
+      value: req.body
+    });
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[API] Erro ao salvar trabalhos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Calendário iCloud ---
+app.get('/api/calendar', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('settings').select('*').eq('key', 'calendar').single();
+    if (error && error.code !== 'PGRST116') throw error;
+    res.json(data ? data.value : { connected: false, email: '' });
+  } catch (error) {
+    console.error('[API] Erro ao buscar configurações de calendário:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/calendar', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('settings').upsert({
+      key: 'calendar',
+      value: req.body
+    });
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[API] Erro ao salvar configurações de calendário:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==========================================
 // SERVIR ARQUIVOS ESTÁTICOS
 // ==========================================

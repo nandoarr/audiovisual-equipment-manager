@@ -77,27 +77,20 @@ export default function Dashboard({
     peopleTable: 'Não testado',
     settingsTable: 'Não testado',
     lastError: null
-  }
+  },
+  jobs = [],
+  onUpdateJobs,
+  icloudConnected = false,
+  icloudEmail = '',
+  onUpdateIcloud
 }) {
   const [activeTab, setActiveTab] = useState('overview')
-
-  // Jobs State (Reports)
-  const [jobs, setJobs] = useState(() => {
-    const saved = localStorage.getItem('peixevoador_jobs')
-    return saved ? JSON.parse(saved) : []
-  })
 
   const [jobName, setJobName] = useState('')
   const [jobDate, setJobDate] = useState('')
   const [editingJobId, setEditingJobId] = useState(null)
 
-  // Calendar Integration States
-  const [icloudConnected, setIcloudConnected] = useState(() => {
-    return localStorage.getItem('peixevoador_icloud_connected') === 'true'
-  })
-  const [icloudEmail, setIcloudEmail] = useState(() => {
-    return localStorage.getItem('peixevoador_icloud_email') || ''
-  })
+  // Calendar Integration States (icloudConnected and icloudEmail are now props)
   const [icloudEventsList, setIcloudEventsList] = useState(() => {
     const saved = localStorage.getItem('peixevoador_icloud_events')
     return saved ? JSON.parse(saved).map(evt => ({
@@ -114,15 +107,12 @@ export default function Dashboard({
   const [editingPersonId, setEditingPersonId] = useState(null)
   const [editingPersonName, setEditingPersonName] = useState('')
 
-
-
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState(new Date())
 
   // Helpers to update states in localStorage
   const updateJobs = (newJobs) => {
-    setJobs(newJobs)
-    localStorage.setItem('peixevoador_jobs', JSON.stringify(newJobs))
+    onUpdateJobs(newJobs)
   }
 
   const handleAddJob = (e) => {
@@ -306,14 +296,12 @@ export default function Dashboard({
         throw new Error('Nenhum evento encontrado. Certifique-se de que o calendário público do iCloud possui compromissos.')
       }
 
-      // Update state and localStorage
+      // Update local events list
       setIcloudEventsList(parsed)
       localStorage.setItem('peixevoador_icloud_events', JSON.stringify(parsed))
       
-      setIcloudConnected(true)
-      setIcloudEmail(url.trim())
-      localStorage.setItem('peixevoador_icloud_connected', 'true')
-      localStorage.setItem('peixevoador_icloud_email', url.trim())
+      // Sync URL settings to database
+      onUpdateIcloud(true, url.trim())
     } catch (err) {
       console.error(err)
       if (!silent) {
@@ -325,20 +313,17 @@ export default function Dashboard({
   }
 
   const disconnectIcloud = () => {
-    setIcloudConnected(false)
-    setIcloudEmail('')
     setIcloudEventsList([])
-    localStorage.removeItem('peixevoador_icloud_connected')
-    localStorage.removeItem('peixevoador_icloud_email')
     localStorage.removeItem('peixevoador_icloud_events')
+    onUpdateIcloud(false, '')
   }
 
-  // Silent sync on mount if connected
+  // Silent sync on mount or URL change if connected
   React.useEffect(() => {
     if (icloudConnected && icloudEmail) {
       syncIcloudCalendar(icloudEmail, true)
     }
-  }, [])
+  }, [icloudConnected, icloudEmail])
 
   const formatJobDate = (dateStr) => {
     if (!dateStr) return '-'
